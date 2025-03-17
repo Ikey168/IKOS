@@ -1,97 +1,80 @@
-# IKOS - Innovative Kernel Operating System
+# Custom Microkernel-Based OS
 
-**IKOS** (Innovative Kernel Operating System) is a modular **microkernel-based** operating system built from scratch in **C++** for **x86 and x86_64** architectures. Designed for flexibility, modularity, and security, IKOS enables independent development of system components, user-space drivers, and dynamic service management.
+## About
+This project is a **general-purpose microkernel-based operating system** designed for **x86 and x86_64 consumer devices** (desktops, laptops). It features a **custom bootloader**, a **virtual memory manager (VMM)**, and **message-passing-based inter-process communication (IPC)**. The OS is developed with a **modular and parallel development approach**, allowing independent system components to evolve without a strict module API. The security model is **permissive**, prioritizing user control and ease of development.
 
-## 🚀 Features
+## Features
+- **Custom Bootloader**: Initializes CPU, memory, and loads the kernel.
+- **Microkernel Architecture**: Only core functions in the kernel; drivers and services in user space.
+- **Virtual Memory Management (VMM)**: Paging-based memory isolation.
+- **Message-Passing IPC**: Inter-process communication via queues.
+- **Parallel Feature Development**: No strict module API for flexibility.
+- **Basic Device Support**: Keyboard, display, disk, networking.
+- **Preemptive Multi-tasking**: Round-robin or priority scheduling.
+- **Filesystem Support**: Virtual file system (VFS), with initial FAT support.
+- **Graphical UI (Planned)**: Framebuffer-based window system.
+- **Networking Stack (Planned)**: Basic TCP/IP for internet access.
 
-- **Microkernel Architecture** – Minimal kernel, most services run in user space.
-- **POSIX Compatibility** – Enables porting of existing software.
-- **User-Space Drivers** – Device drivers operate as modular, isolated services.
-- **Inter-Process Communication (IPC)** – Secure message-based communication.
-- **Dynamic Module Loading** – Hot-swappable kernel and user-space components.
-- **Virtual Memory & Paging** – Efficient memory management.
-- **Networking Support** – TCP/IP networking stack (WIP).
-- **Graphical UI (Planned)** – GUI-based desktop environment and window manager.
-
----
-
-## 📌 Current Development Milestones
-
-### ✅ **Milestone 1: Bootstrapping the Kernel** (🟢 Ongoing)
-- Kernel initialization, memory management, and task scheduling.
-- Booting via GRUB with basic VGA text output.
-
-### 🔜 **Upcoming Milestones:**
-1. **Process & Memory Management** – Implement process control, syscalls, and IPC.
-2. **User-Space Services** – Develop a CLI shell, ELF loader, and virtual filesystem.
-3. **Modular Drivers** – Implement user-space keyboard, disk, and serial drivers.
-4. **Networking Stack** – Develop a TCP/IP networking system.
-5. **GUI System** – Implement a window manager and graphical user interface.
-6. **Security & Stability Enhancements** – Introduce sandboxing, permissions, and crash handling.
-
----
-
-## 🛠️ Getting Started
-
-### 🔧 **Build Requirements**
-- **OS:** Linux/macOS (recommended for development)
-- **Compiler:** `x86_64-elf-gcc`
-- **Emulator:** QEMU / Bochs
-- **Build System:** Make / CMake
-
-### 🏗 **Building IKOS**
-
-```sh
-# Clone the repository
-git clone https://github.com/your-username/IKOS.git
-cd IKOS
-
-# Setup cross compiler (if not installed)
-make toolchain
-
-# Build the OS
-make
-
-# Run in QEMU
-make run
+## Architecture Overview
+```
++---------------------------------------------------+
+| User Applications (GUI, Shell, Web, Filesystem)  |
++---------------------------------------------------+
+| System Services (FS, Network, Audio, etc.)       |
++---------------------------------------------------+
+| Device Drivers (GPU, Storage, Input, etc.)       |
++---------------------------------------------------+
+| Microkernel (IPC, Scheduler, VMM, Interrupts)    |
++---------------------------------------------------+
+| Hardware (CPU, RAM, Disk, GPU, Network, etc.)    |
++---------------------------------------------------+
 ```
 
-### 🏁 **Running IKOS in QEMU**
+## Getting Started
+### Prerequisites
+- **x86-64 Cross Compiler** (GCC, Clang, or another suitable toolchain)
+- **QEMU** (for emulation and testing)
+- **GRUB** (if using a GRUB-compatible bootloader)
+- **Make, NASM, and C/C++ Compiler**
 
-To test IKOS in QEMU:
-```sh
-make run
-```
+### Building the OS
+1. Clone the repository:
+   ```sh
+   git clone https://github.com/yourusername/custom-os.git
+   cd custom-os
+   ```
+2. Compile the bootloader and kernel:
+   ```sh
+   make all
+   ```
+3. Run in QEMU:
+   ```sh
+   make run
+   ```
 
-To debug using GDB:
-```sh
-make debug
-```
+### Testing
+- Use `make test` to run unit tests on kernel components.
+- Debugging can be done using `GDB` with QEMU:
+   ```sh
+   make debug
+   ```
 
----
+## Roadmap
+- [x] Bootloader Development
+- [x] Microkernel Core (IPC, Scheduling, VMM)
+- [ ] User-space Services (Filesystem, Networking, Device Drivers)
+- [ ] GUI & Shell Development
+- [ ] Networking Stack & Advanced Features
 
-## 📜 License
-*(Specify your open-source license, e.g., MIT, GPLv2, or custom.)*
+## Contributing
+Contributions are welcome! Please follow these steps:
+1. Fork the repository.
+2. Create a new branch (`feature-name`).
+3. Commit changes (`git commit -m "Added feature X"`).
+4. Push to the branch (`git push origin feature-name`).
+5. Open a pull request.
 
----
+## License
+This project is licensed under the MIT License. See `LICENSE` for details.
 
-## 🤝 Contributing
-Contributions are welcome! If you’d like to help:
-
-1. Fork the repository and create a feature branch.
-2. Commit changes with descriptive messages.
-3. Open a pull request with details of the proposed changes.
-
-For major changes, please open an issue to discuss before implementing.
-
----
-
-## 📢 Community & Support
-- **Discussions:** *(Link to GitHub Discussions or Discord server)*
-- **Issues:** *(Link to issue tracker for bug reports and feature requests)*
-- **Documentation:** *(Link to additional docs, if available)*
-
----
-
-### 🚀 Join us in building the future of modular operating systems!
 
