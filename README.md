@@ -4,7 +4,7 @@
 This project is a **general-purpose microkernel-based operating system** designed for **x86 and x86_64 consumer devices** (desktops, laptops). It features a **custom bootloader**, a **virtual memory manager (VMM)**, and **message-passing-based inter-process communication (IPC)**. The OS is developed with a **modular and parallel development approach**, allowing independent system components to evolve without a strict module API. The security model is **permissive**, prioritizing user control and ease of development.
 
 ## Features
-- **Custom Bootloader**: Initializes CPU, memory, and loads the kernel.
+- **Custom Bootloader**: Initializes CPU segments and loads the kernel. Real mode setup and BIOS memory map retrieval live in `boot/real_mode.asm` with entries stored at `0x0500`.
 - **Microkernel Architecture**: Only core functions in the kernel; drivers and services in user space.
 - **Virtual Memory Management (VMM)**: Paging-based memory isolation.
 - **Message-Passing IPC**: Inter-process communication via queues.
@@ -45,7 +45,8 @@ This project is a **general-purpose microkernel-based operating system** designe
    ```
 2. Compile the bootloader and kernel:
    ```sh
-   make all
+   nasm -f bin boot/real_mode.asm -o boot/real_mode.bin  # assemble real-mode boot sector
+   make all  # build other components
    ```
 3. Run in QEMU:
    ```sh
