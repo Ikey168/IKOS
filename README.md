@@ -3,12 +3,19 @@
 ## About
 IKOS is a **custom microkernel-based operating system** designed for **x86 and x86_64 consumer devices** (desktops, laptops). It features a **custom bootloader with real mode initialization**, a **virtual memory manager (VMM)**, and **message-passing-based inter-process communication (IPC)**. The OS is developed with a **modular and parallel development approach**, allowing independent system components to evolve without a strict module API.
 
-## Current Status - Issue #1: Real Mode Initialization ✅
+## Current Status - Issue #1: Real Mode Initialization ✅ COMPLETED
 
-**Completed Tasks:**
+**All Required Tasks Successfully Implemented:**
 - [x] Configure segment registers (DS, ES, FS, GS, SS set to 0 for flat memory model)
 - [x] Set up the stack pointer (SP configured at 0x7C00 with downward growth)
 - [x] Prepare memory map for the bootloader (BIOS INT 0x15, AX=0xE820 implementation)
+
+**Testing Results:**
+- [x] Basic bootloader: Successfully boots and completes initialization
+- [x] Compact bootloader: Successfully boots with memory detection (639KB conv + 64MB ext)
+- [x] All segment registers properly configured to 0x0000
+- [x] Stack pointer set to 0x7C00 with proper downward growth
+- [x] Memory mapping functional using BIOS services
 
 **Additional Features Implemented:**
 - [x] Video mode initialization (80x25 color text mode)
@@ -95,6 +102,29 @@ make install-deps
    make build/ikos.img          # Basic bootloader only
    make build/ikos_enhanced.img # Enhanced bootloader only
    ```
+
+### Quick Start
+
+To quickly test the real mode initialization:
+
+```bash
+# Build and test the compact bootloader (recommended)
+make test-compact
+
+# Build and test the basic bootloader  
+make test
+
+# Build both versions
+make all
+```
+
+**Expected Output (Compact Bootloader):**
+```
+IKOS Bootloader - Real Mode Init
+Conv: 027FKB
+Ext: FC00KB  
+Init complete!
+```
 
 ### Testing the Bootloader
 
