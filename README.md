@@ -1,7 +1,46 @@
-# Custom Microkernel-Based OS
+# IKOS Operating System
 
 ## About
-This project is a **general-purpose microkernel-based operating system** designed for **x86 and x86_64 consumer devices** (desktops, laptops). It features a **custom bootloader**, a **virtual memory manager (VMM)**, and **message-passing-based inter-process communication (IPC)**. The OS is developed with a **modular and parallel development approach**, allowing independent system components to evolve without a strict module API. The security model is **permissive**, prioritizing user control and ease of development.
+IKOS is a **custom microkernel-based operating system** designed for **x86 and x86_64 consumer devices** (desktops, laptops). It features a **custom bootloader with real mode initialization**, a **virtual memory manager (VMM)**, and **message-passing-based inter-process communication (IPC)**. The OS is developed with a **modular and parallel development approach**, allowing independent system components to evolve without a strict module API.
+
+## Current Status - Issue #1: Real Mode Initialization ✅ COMPLETED
+
+**All Required Tasks Successfully Implemented:**
+- [x] Configure segment registers (DS, ES, FS, GS, SS set to 0 for flat memory model)
+- [x] Set up the stack pointer (SP configured at 0x7C00 with downward growth)
+- [x] Prepare memory map for the bootloader (BIOS INT 0x15, AX=0xE820 implementation)
+
+**Testing Results:**
+- [x] Basic bootloader: Successfully boots and completes initialization
+- [x] Compact bootloader: Successfully boots with memory detection (639KB conv + 64MB ext)
+- [x] All segment registers properly configured to 0x0000
+- [x] Stack pointer set to 0x7C00 with proper downward growth
+- [x] Memory mapping functional using BIOS services
+
+**Additional Features Implemented:**
+- [x] Video mode initialization (80x25 color text mode)
+- [x] Comprehensive memory detection (conventional and extended memory)
+- [x] System information display
+- [x] Error handling and status reporting
+- [x] Clean bootloader architecture with modular functions
+
+## Bootloader Features
+The IKOS bootloader provides two implementations:
+
+### Basic Bootloader (`boot/boot.asm`)
+- Essential real mode initialization
+- Segment register configuration
+- Stack setup
+- Basic memory mapping
+- Minimal system output
+
+### Enhanced Bootloader (`boot/boot_enhanced.asm`)
+- Complete real mode initialization sequence
+- Comprehensive memory detection and mapping
+- Video mode initialization
+- Detailed system information display
+- Enhanced error handling
+- Modular function architecture
 
 ## Features
 - **Custom Bootloader**: Initializes CPU, memory, and loads the kernel.
@@ -31,24 +70,104 @@ This project is a **general-purpose microkernel-based operating system** designe
 ```
 
 ## Getting Started
-### Prerequisites
-- **x86-64 Cross Compiler** (GCC, Clang, or another suitable toolchain)
-- **QEMU** (for emulation and testing)
-- **GRUB** (if using a GRUB-compatible bootloader)
-- **Make, NASM, and C/C++ Compiler**
 
-### Building the OS
-1. Clone the repository:
-   ```sh
-   git clone https://github.com/yourusername/custom-os.git
-   cd custom-os
+### Prerequisites
+Install the required development tools:
+```bash
+# Install dependencies (Ubuntu/Debian)
+sudo apt-get update
+sudo apt-get install -y nasm qemu-system-x86 build-essential
+
+# Or use the Makefile target
+make install-deps
+```
+
+### Building the Bootloader
+1. Clone and navigate to the repository:
+   ```bash
+   git clone <repository-url>
+   cd IKOS
    ```
-2. Compile the bootloader and kernel:
-   ```sh
+
+2. Build both bootloader versions:
+   ```bash
    make all
    ```
-3. Run in QEMU:
-   ```sh
+   This creates:
+   - `build/ikos.img` - Basic bootloader disk image
+   - `build/ikos_enhanced.img` - Enhanced bootloader disk image
+
+3. Build individual versions:
+   ```bash
+   make build/ikos.img          # Basic bootloader only
+   make build/ikos_enhanced.img # Enhanced bootloader only
+   ```
+
+### Quick Start
+
+To quickly test the real mode initialization:
+
+```bash
+# Build and test the compact bootloader (recommended)
+make test-compact
+
+# Build and test the basic bootloader  
+make test
+
+# Build both versions
+make all
+```
+
+**Expected Output (Compact Bootloader):**
+```
+IKOS Bootloader - Real Mode Init
+Conv: 027FKB
+Ext: FC00KB  
+Init complete!
+```
+
+### Testing the Bootloader
+
+#### Run the Enhanced Bootloader (Recommended)
+```bash
+make test-enhanced
+```
+
+#### Run the Basic Bootloader
+```bash
+make test
+```
+
+#### Debug Mode
+```bash
+make debug-enhanced    # Enhanced bootloader with GDB debugging
+make debug            # Basic bootloader with GDB debugging
+```
+
+### What You'll See
+When running the enhanced bootloader, you'll see:
+1. **Boot Banner** - IKOS bootloader identification
+2. **Memory Detection** - Conventional and extended memory sizes
+3. **Memory Map Creation** - BIOS memory map enumeration
+4. **System Information** - Segment registers and stack pointer values
+5. **Completion Status** - Confirmation of all initialization tasks
+
+## Project Structure
+```
+IKOS/
+├── boot/
+│   ├── boot.asm           # Basic bootloader implementation
+│   ├── boot_enhanced.asm  # Enhanced bootloader with full features
+│   └── boot.ld           # Linker script for bootloader
+├── include/
+│   ├── boot.h            # C header definitions
+│   ├── boot.inc          # Assembly include file
+│   └── memory.h          # Memory layout definitions
+├── src/                  # Source code (future kernel implementation)
+├── build/                # Build output directory (created by make)
+├── Makefile             # Build system
+└── README.md           # This file
+```
    make run
    ```
 
