@@ -1,5 +1,5 @@
 /* IKOS Memory Layout Definitions */
-/* Defines memory regions and addresses for real mode operation */
+/* Defines memory regions and addresses for real mode and protected mode operation */
 
 #ifndef MEMORY_H
 #define MEMORY_H
@@ -33,5 +33,21 @@
 #define BDA_BASE                0x400    /* BIOS Data Area start */
 #define BDA_EQUIPMENT_WORD      0x410    /* Equipment configuration */
 #define BDA_MEMORY_SIZE         0x413    /* Base memory size in KB */
+
+/* Protected Mode Memory Layout */
+#define PMODE_STACK_BASE    0x9000    /* Protected mode stack base */
+#define PMODE_STACK_SIZE    0x1000    /* 4KB protected mode stack */
+#define PMODE_CODE_BASE     0x100000  /* 1MB - Protected mode code base */
+#define PMODE_DATA_BASE     0x200000  /* 2MB - Protected mode data base */
+#define PMODE_HEAP_BASE     0x300000  /* 3MB - Protected mode heap base */
+
+/* GDT Memory Layout */
+#define GDT_BASE            0x8000    /* GDT location in memory */
+#define GDT_SIZE            0x800     /* 2KB for GDT (256 entries max) */
+#define GDT_ENTRIES         8         /* Number of GDT entries */
+
+/* IDT Memory Layout (for future interrupt handling) */
+#define IDT_BASE            0x8800    /* IDT location in memory */
+#define IDT_SIZE            0x800     /* 2KB for IDT (256 entries max) */
 
 #endif /* MEMORY_H */

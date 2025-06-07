@@ -24,8 +24,29 @@ IKOS is a **custom microkernel-based operating system** designed for **x86 and x
 - [x] Error handling and status reporting
 - [x] Clean bootloader architecture with modular functions
 
+## Current Status - Issue #3: Protected Mode Transition ✅ COMPLETED
+
+**All Required Tasks Successfully Implemented:**
+- [x] Enable A20 line (multiple fallback methods: BIOS INT 0x2401, keyboard controller, fast A20)
+- [x] Load Global Descriptor Table (GDT) with proper null, code, and data descriptors
+- [x] Switch to protected mode (CR0 manipulation and segment register setup)
+
+**Testing Results:**
+- [x] Protected mode compact bootloader: Successfully boots and displays "IKOS: A20->GDT->PMOD"
+- [x] A20 line enabled with robust fallback mechanism
+- [x] GDT properly loaded with correct segment descriptors
+- [x] Protected mode transition completed successfully
+- [x] Fits within 512-byte boot sector constraint
+
+**Implementation Details:**
+- [x] Created comprehensive GDT header files (`include/gdt.h`, `include/gdt.inc`)
+- [x] Implemented protected mode definitions (`include/protected_mode.h`)
+- [x] Built full-featured protected mode bootloader (`boot/boot_protected.asm`)
+- [x] Created compact version fitting in boot sector (`boot/boot_protected_compact.asm`)
+- [x] Updated Makefile with protected mode build and test targets
+
 ## Bootloader Features
-The IKOS bootloader provides two implementations:
+The IKOS bootloader provides multiple implementations:
 
 ### Basic Bootloader (`boot/boot.asm`)
 - Essential real mode initialization
@@ -41,6 +62,14 @@ The IKOS bootloader provides two implementations:
 - Detailed system information display
 - Enhanced error handling
 - Modular function architecture
+
+### Protected Mode Bootloader (`boot/boot_protected_compact.asm`)
+- Real mode to protected mode transition
+- A20 line enablement with multiple fallback methods
+- Global Descriptor Table (GDT) setup and loading
+- 32-bit protected mode entry
+- Fits within 512-byte boot sector constraint
+- Success confirmation display: "IKOS: A20->GDT->PMOD"
 
 ## Features
 - **Custom Bootloader**: Initializes CPU, memory, and loads the kernel.
@@ -89,33 +118,43 @@ make install-deps
    cd IKOS
    ```
 
-2. Build both bootloader versions:
+2. Build all bootloader versions:
    ```bash
    make all
    ```
    This creates:
    - `build/ikos.img` - Basic bootloader disk image
-   - `build/ikos_enhanced.img` - Enhanced bootloader disk image
+   - `build/ikos_compact.img` - Compact bootloader disk image  
+   - `build/ikos_protected_compact.img` - Protected mode bootloader disk image
 
 3. Build individual versions:
    ```bash
-   make build/ikos.img          # Basic bootloader only
-   make build/ikos_enhanced.img # Enhanced bootloader only
+   make build/ikos.img                    # Basic bootloader only
+   make build/ikos_enhanced.img           # Enhanced bootloader only
+   make build/ikos_protected_compact.img  # Protected mode bootloader only
    ```
 
 ### Quick Start
 
-To quickly test the real mode initialization:
+To quickly test the bootloaders:
 
 ```bash
-# Build and test the compact bootloader (recommended)
+# Build and test the protected mode bootloader (latest)
+make test-protected-compact
+
+# Build and test the compact bootloader (real mode)
 make test-compact
 
 # Build and test the basic bootloader  
 make test
 
-# Build both versions
+# Build all versions
 make all
+```
+
+**Expected Output (Protected Mode Bootloader):**
+```
+IKOS: A20->GDT->PMOD
 ```
 
 **Expected Output (Compact Bootloader):**
@@ -128,7 +167,12 @@ Init complete!
 
 ### Testing the Bootloader
 
-#### Run the Enhanced Bootloader (Recommended)
+#### Run the Protected Mode Bootloader (Latest)
+```bash
+make test-protected-compact
+```
+
+#### Run the Enhanced Bootloader (Real Mode)
 ```bash
 make test-enhanced
 ```
@@ -140,8 +184,9 @@ make test
 
 #### Debug Mode
 ```bash
-make debug-enhanced    # Enhanced bootloader with GDB debugging
-make debug            # Basic bootloader with GDB debugging
+make debug-protected-compact  # Protected mode bootloader with GDB debugging
+make debug-enhanced          # Enhanced bootloader with GDB debugging
+make debug                   # Basic bootloader with GDB debugging
 ```
 
 ### What You'll See
@@ -156,17 +201,23 @@ When running the enhanced bootloader, you'll see:
 ```
 IKOS/
 ├── boot/
-│   ├── boot.asm           # Basic bootloader implementation
-│   ├── boot_enhanced.asm  # Enhanced bootloader with full features
-│   └── boot.ld           # Linker script for bootloader
+│   ├── boot.asm                    # Basic bootloader implementation
+│   ├── boot_enhanced.asm           # Enhanced bootloader with full features
+│   ├── boot_compact.asm            # Compact real mode bootloader
+│   ├── boot_protected.asm          # Full protected mode bootloader
+│   ├── boot_protected_compact.asm  # Compact protected mode bootloader
+│   └── boot.ld                     # Linker script for bootloader
 ├── include/
-│   ├── boot.h            # C header definitions
-│   ├── boot.inc          # Assembly include file
-│   └── memory.h          # Memory layout definitions
-├── src/                  # Source code (future kernel implementation)
-├── build/                # Build output directory (created by make)
-├── Makefile             # Build system
-└── README.md           # This file
+│   ├── boot.h                      # C header definitions
+│   ├── boot.inc                    # Assembly include file
+│   ├── memory.h                    # Memory layout definitions
+│   ├── gdt.h                       # Global Descriptor Table C definitions
+│   ├── gdt.inc                     # GDT assembly constants
+│   └── protected_mode.h            # Protected mode control definitions
+├── src/                            # Source code (future kernel implementation)
+├── build/                          # Build output directory (created by make)
+├── Makefile                        # Build system
+└── README.md                      # This file
 ```
    make run
    ```
