@@ -50,4 +50,11 @@
 #define IDT_BASE            0x8800    /* IDT location in memory */
 #define IDT_SIZE            0x800     /* 2KB for IDT (256 entries max) */
 
+/* Kernel Loading Memory Layout */
+#define KERNEL_BUFFER       0x10000   /* 64KB - Temporary kernel buffer */
+#define DISK_BUFFER         0x20000   /* 128KB - Disk read buffer */
+#define KERNEL_LOAD_BASE    0x100000  /* 1MB - Final kernel load address */
+#define KERNEL_MAX_SIZE     0x400000  /* 4MB - Maximum kernel size */
+#define ELF_HEADER_BUFFER   0x30000   /* 192KB - ELF header buffer */
+
 #endif /* MEMORY_H */
