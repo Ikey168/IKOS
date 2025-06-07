@@ -13,15 +13,21 @@ BUILD_DIR = build
 BOOT_ASM = $(BOOT_DIR)/boot.asm
 BOOT_ENHANCED_ASM = $(BOOT_DIR)/boot_enhanced.asm
 BOOT_COMPACT_ASM = $(BOOT_DIR)/boot_compact.asm
+BOOT_PROTECTED_ASM = $(BOOT_DIR)/boot_protected.asm
+BOOT_PROTECTED_COMPACT_ASM = $(BOOT_DIR)/boot_protected_compact.asm
 BOOT_BIN = $(BUILD_DIR)/boot.bin
 BOOT_ENHANCED_BIN = $(BUILD_DIR)/boot_enhanced.bin
 BOOT_COMPACT_BIN = $(BUILD_DIR)/boot_compact.bin
+BOOT_PROTECTED_BIN = $(BUILD_DIR)/boot_protected.bin
+BOOT_PROTECTED_COMPACT_BIN = $(BUILD_DIR)/boot_protected_compact.bin
 DISK_IMG = $(BUILD_DIR)/ikos.img
 DISK_ENHANCED_IMG = $(BUILD_DIR)/ikos_enhanced.img
 DISK_COMPACT_IMG = $(BUILD_DIR)/ikos_compact.img
+DISK_PROTECTED_IMG = $(BUILD_DIR)/ikos_protected.img
+DISK_PROTECTED_COMPACT_IMG = $(BUILD_DIR)/ikos_protected_compact.img
 
 # Default target
-all: $(DISK_IMG) $(DISK_COMPACT_IMG)
+all: $(DISK_IMG) $(DISK_COMPACT_IMG) $(DISK_PROTECTED_COMPACT_IMG)
 
 # Create build directory
 $(BUILD_DIR):
@@ -49,6 +55,24 @@ $(DISK_COMPACT_IMG): $(BOOT_COMPACT_BIN)
 	dd if=/dev/zero of=$(DISK_COMPACT_IMG) bs=512 count=2880
 	dd if=$(BOOT_COMPACT_BIN) of=$(DISK_COMPACT_IMG) bs=512 count=1 conv=notrunc
 
+# Assemble protected mode bootloader
+$(BOOT_PROTECTED_BIN): $(BOOT_PROTECTED_ASM) | $(BUILD_DIR)
+	$(ASM) -f bin $(BOOT_PROTECTED_ASM) -o $(BOOT_PROTECTED_BIN) -I include/
+
+# Create disk image with protected mode bootloader
+$(DISK_PROTECTED_IMG): $(BOOT_PROTECTED_BIN)
+	dd if=/dev/zero of=$(DISK_PROTECTED_IMG) bs=512 count=2880
+	dd if=$(BOOT_PROTECTED_BIN) of=$(DISK_PROTECTED_IMG) bs=512 count=1 conv=notrunc
+
+# Assemble protected compact mode bootloader
+$(BOOT_PROTECTED_COMPACT_BIN): $(BOOT_PROTECTED_COMPACT_ASM) | $(BUILD_DIR)
+	$(ASM) -f bin $(BOOT_PROTECTED_COMPACT_ASM) -o $(BOOT_PROTECTED_COMPACT_BIN) -I include/
+
+# Create disk image with protected compact mode bootloader
+$(DISK_PROTECTED_COMPACT_IMG): $(BOOT_PROTECTED_COMPACT_BIN)
+	dd if=/dev/zero of=$(DISK_PROTECTED_COMPACT_IMG) bs=512 count=2880
+	dd if=$(BOOT_PROTECTED_COMPACT_BIN) of=$(DISK_PROTECTED_COMPACT_IMG) bs=512 count=1 conv=notrunc
+
 # Test basic bootloader in QEMU
 test: $(DISK_IMG)
 	$(QEMU) -drive format=raw,file=$(DISK_IMG) -no-reboot -no-shutdown -nographic
@@ -69,6 +93,22 @@ test-compact: $(DISK_COMPACT_IMG)
 debug-compact: $(DISK_COMPACT_IMG)
 	$(QEMU) -drive format=raw,file=$(DISK_COMPACT_IMG) -no-reboot -no-shutdown -s -S
 
+# Test protected mode bootloader in QEMU
+test-protected: $(DISK_PROTECTED_IMG)
+	$(QEMU) -drive format=raw,file=$(DISK_PROTECTED_IMG) -no-reboot -no-shutdown -nographic
+
+# Test compact protected mode bootloader in QEMU
+test-protected-compact: $(DISK_PROTECTED_COMPACT_IMG)
+	$(QEMU) -drive format=raw,file=$(DISK_PROTECTED_COMPACT_IMG) -no-reboot -no-shutdown -nographic
+
+# Debug protected mode bootloader
+debug-protected: $(DISK_PROTECTED_IMG)
+	$(QEMU) -drive format=raw,file=$(DISK_PROTECTED_IMG) -no-reboot -no-shutdown -s -S
+
+# Debug compact protected mode bootloader
+debug-protected-compact: $(DISK_PROTECTED_COMPACT_IMG)
+	$(QEMU) -drive format=raw,file=$(DISK_PROTECTED_COMPACT_IMG) -no-reboot -no-shutdown -s -S
+
 # Clean build files
 clean:
 	rm -rf $(BUILD_DIR)
@@ -78,4 +118,4 @@ install-deps:
 	sudo apt-get update
 	sudo apt-get install -y nasm qemu-system-x86
 
-.PHONY: all test test-enhanced test-compact debug debug-enhanced debug-compact clean install-deps
+.PHONY: all test test-enhanced test-compact debug debug-enhanced debug-compact test-protected debug-protected test-protected-compact debug-protected-compact clean install-deps
