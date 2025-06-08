@@ -66,18 +66,32 @@ protected_mode:
 ; ============================================================================
 load_kernel_elf:
     pusha
-    
-    ; For this implementation, we simulate ELF loading
-    ; In a real implementation, this would:
-    ; 1. Read sectors from disk to buffer
-    ; 2. Parse ELF header 
-    ; 3. Load program segments to correct memory locations
-    ; 4. Return entry point address
-    
-    ; Simulate successful ELF loading
-    mov eax, 0x100000       ; Standard kernel entry point
+
+    ; Assume ELF file is loaded at 0x10000
+    mov esi, 0x10000
+
+    ; Check ELF magic number (0x7F 'E' 'L' 'F')
+    cmp dword [esi], 0x464C457F
+    jne .error
+
+    ; Extract entry point (offset 0x18 in ELF header)
+    mov eax, [esi + 0x18]
+    test eax, eax
+    jz .error
+
+    ; Optionally: print entry point (for debug)
+    ; mov esi, entry_msg
+    ; call print_string_32
+    ; mov eax, [esi + 0x18]
+    ; (print eax as hex if needed)
+
     popa
     ret
+
+.error:
+    mov esi, elf_error_msg
+    call print_string_32
+    jmp $
 
 ; ============================================================================
 ; FUNCTION: print_string_32 (32-bit protected mode)
@@ -130,6 +144,7 @@ print_string:
 boot_msg        db 'IKOS: ELF->LOAD->PMOD', 13, 10, 0
 success_msg     db 'IKOS: ELF KERNEL READY', 0
 boot_drive      db 0
+elf_error_msg   db 'ELF ERROR', 0
 
 ; GDT
 gdt_start:
