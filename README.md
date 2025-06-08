@@ -39,11 +39,30 @@ IKOS is a **custom microkernel-based operating system** designed for **x86 and x
 - [x] Fits within 512-byte boot sector constraint
 
 **Implementation Details:**
-- [x] Created comprehensive GDT header files (`include/gdt.h`, `include/gdt.inc`)
-- [x] Implemented protected mode definitions (`include/protected_mode.h`)
-- [x] Built full-featured protected mode bootloader (`boot/boot_protected.asm`)
-- [x] Created compact version fitting in boot sector (`boot/boot_protected_compact.asm`)
-- [x] Updated Makefile with protected mode build and test targets
+- A20 line enablement uses BIOS INT 0x2401 as primary method with keyboard controller and fast A20 fallbacks
+- GDT configured with null descriptor (0x00), code segment (0x08), and data segment (0x10)
+- Protected mode switch uses proper CR0.PE bit setting followed by far jump to flush pipeline
+- Memory layout defines protected mode stack, code, data, and heap regions
+
+## Current Status - Issue #4: Loading ELF Kernel Binary ✅ COMPLETED
+
+**All Required Tasks Successfully Implemented:**
+- [x] Read kernel ELF binary from disk (sector-based reading with error handling)
+- [x] Parse ELF headers and locate entry point (comprehensive validation and extraction)
+- [x] Copy kernel sections into memory (program segment loading with proper memory management)
+
+**Testing Results:**
+- [x] ELF compact bootloader: Successfully boots and displays "IKOS: ELF->LOAD->PMO"
+- [x] ELF header validation with magic number, class, encoding, and machine type checks
+- [x] Entry point extraction from ELF header offset 0x18
+- [x] Program segment loading with PT_LOAD segment identification and memory copying
+- [x] BSS section handling with proper memory clearing
+
+**Implementation Details:**
+- ELF loading implemented in `boot/boot_elf_compact.asm`
+- Sector-based reading and parsing in assembly for efficiency
+- Entry point and segment information extracted from ELF header
+- BSS segment cleared to zero during loading
 
 ## Bootloader Features
 The IKOS bootloader provides multiple implementations:
@@ -70,6 +89,13 @@ The IKOS bootloader provides multiple implementations:
 - 32-bit protected mode entry
 - Fits within 512-byte boot sector constraint
 - Success confirmation display: "IKOS: A20->GDT->PMOD"
+
+### ELF Kernel Loading Bootloader (`boot/boot_elf_compact.asm`)
+- Complete ELF binary format support
+- ELF header validation and parsing
+- Program segment loading into memory
+- Entry point extraction and execution
+- Protected mode ELF kernel loading pipeline
 
 ## Features
 - **Custom Bootloader**: Initializes CPU, memory, and loads the kernel.
@@ -132,6 +158,7 @@ make install-deps
    make build/ikos.img                    # Basic bootloader only
    make build/ikos_enhanced.img           # Enhanced bootloader only
    make build/ikos_protected_compact.img  # Protected mode bootloader only
+   make build/ikos_elf_compact.img        # ELF kernel loading bootloader only
    ```
 
 ### Quick Start
@@ -139,7 +166,10 @@ make install-deps
 To quickly test the bootloaders:
 
 ```bash
-# Build and test the protected mode bootloader (latest)
+# Build and test the ELF kernel loading bootloader (latest)
+make test-elf-compact
+
+# Build and test the protected mode bootloader
 make test-protected-compact
 
 # Build and test the compact bootloader (real mode)
@@ -150,6 +180,12 @@ make test
 
 # Build all versions
 make all
+```
+
+**Expected Output (ELF Kernel Loading Bootloader):**
+```
+IKOS: ELF->LOAD->PMO
+IKOS: ELF KERNEL READY
 ```
 
 **Expected Output (Protected Mode Bootloader):**
@@ -206,11 +242,14 @@ IKOS/
 │   ├── boot_compact.asm            # Compact real mode bootloader
 │   ├── boot_protected.asm          # Full protected mode bootloader
 │   ├── boot_protected_compact.asm  # Compact protected mode bootloader
+│   ├── boot_elf_compact.asm        # ELF kernel loading bootloader
 │   └── boot.ld                     # Linker script for bootloader
 ├── include/
 │   ├── boot.h                      # C header definitions
 │   ├── boot.inc                    # Assembly include file
 │   ├── memory.h                    # Memory layout definitions
+│   ├── elf.h                       # ELF format definitions
+│   ├── elf.inc                     # ELF assembly constants
 │   ├── gdt.h                       # Global Descriptor Table C definitions
 │   ├── gdt.inc                     # GDT assembly constants
 │   └── protected_mode.h            # Protected mode control definitions
