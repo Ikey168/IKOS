@@ -105,6 +105,16 @@ load_kernel_elf:
     
     ; Store entry point for later use
     mov [kernel_entry], eax
+    
+    ; === LOAD PROGRAM SEGMENTS ===
+    ; Get program header offset and count
+    mov ebx, [esi + 28]     ; e_phoff - program header offset
+    add ebx, esi            ; Convert to absolute address
+    movzx ecx, word [esi + 44] ; e_phnum - number of program headers
+    movzx edx, word [esi + 42] ; e_phentsize - program header entry size
+    
+    ; Load each program segment
+    call load_program_segments
 
     popa
     ret
@@ -155,6 +165,68 @@ print_string:
     jz .done
     int 0x10
     jmp .loop
+.done:
+    popa
+    ret
+
+; ============================================================================
+; FUNCTION: load_program_segments (32-bit protected mode)
+; Load ELF program segments into memory
+; Input: EBX = program header table address, ECX = number of headers, EDX = header size
+; ============================================================================
+load_program_segments:
+    pusha
+    
+    ; Check if we have any program headers
+    test ecx, ecx
+    jz .done
+    
+.segment_loop:
+    ; Check if this is a loadable segment (PT_LOAD = 1)
+    cmp dword [ebx], 1      ; p_type field
+    jne .next_segment
+    
+    ; Get segment information
+    mov esi, [ebx + 4]      ; p_offset - file offset
+    add esi, 0x10000        ; Add to ELF base address
+    mov edi, [ebx + 12]     ; p_paddr - physical address
+    mov eax, [ebx + 16]     ; p_filesz - size in file
+    
+    ; Validate destination address (must be >= 1MB for safety)
+    cmp edi, 0x100000
+    jb .next_segment
+    
+    ; Copy segment data
+    push ecx                ; Save loop counter
+    mov ecx, eax            ; Size to copy
+    test ecx, ecx           ; Check if there's data to copy
+    jz .segment_copied
+    
+    ; Simple memory copy (rep movsb)
+    cld
+    rep movsb
+    
+.segment_copied:
+    pop ecx                 ; Restore loop counter
+    
+    ; Clear any remaining memory (p_memsz - p_filesz)
+    mov eax, [ebx + 20]     ; p_memsz - size in memory
+    sub eax, [ebx + 16]     ; Subtract file size
+    jz .next_segment        ; No additional clearing needed
+    
+    ; Clear remaining bytes with zeros
+    push ecx
+    mov ecx, eax
+    xor al, al
+    rep stosb
+    pop ecx
+    
+.next_segment:
+    ; Move to next program header
+    add ebx, edx            ; Add program header entry size
+    dec ecx
+    jnz .segment_loop
+    
 .done:
     popa
     ret
