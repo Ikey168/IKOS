@@ -17,6 +17,7 @@ BOOT_PROTECTED_ASM = $(BOOT_DIR)/boot_protected.asm
 BOOT_PROTECTED_COMPACT_ASM = $(BOOT_DIR)/boot_protected_compact.asm
 BOOT_ELF_LOADER_ASM = $(BOOT_DIR)/boot_elf_loader.asm
 BOOT_ELF_COMPACT_ASM = $(BOOT_DIR)/boot_elf_compact.asm
+BOOT_LONGMODE_ASM = $(BOOT_DIR)/boot_longmode.asm
 BOOT_BIN = $(BUILD_DIR)/boot.bin
 BOOT_ENHANCED_BIN = $(BUILD_DIR)/boot_enhanced.bin
 BOOT_COMPACT_BIN = $(BUILD_DIR)/boot_compact.bin
@@ -24,6 +25,7 @@ BOOT_PROTECTED_BIN = $(BUILD_DIR)/boot_protected.bin
 BOOT_PROTECTED_COMPACT_BIN = $(BUILD_DIR)/boot_protected_compact.bin
 BOOT_ELF_LOADER_BIN = $(BUILD_DIR)/boot_elf_loader.bin
 BOOT_ELF_COMPACT_BIN = $(BUILD_DIR)/boot_elf_compact.bin
+BOOT_LONGMODE_BIN = $(BUILD_DIR)/boot_longmode.bin
 DISK_IMG = $(BUILD_DIR)/ikos.img
 DISK_ENHANCED_IMG = $(BUILD_DIR)/ikos_enhanced.img
 DISK_COMPACT_IMG = $(BUILD_DIR)/ikos_compact.img
@@ -31,9 +33,10 @@ DISK_PROTECTED_IMG = $(BUILD_DIR)/ikos_protected.img
 DISK_PROTECTED_COMPACT_IMG = $(BUILD_DIR)/ikos_protected_compact.img
 DISK_ELF_LOADER_IMG = $(BUILD_DIR)/ikos_elf_loader.img
 DISK_ELF_COMPACT_IMG = $(BUILD_DIR)/ikos_elf_compact.img
+DISK_LONGMODE_IMG = $(BUILD_DIR)/ikos_longmode.img
 
 # Default target
-all: $(DISK_IMG) $(DISK_COMPACT_IMG) $(DISK_PROTECTED_COMPACT_IMG) $(DISK_ELF_COMPACT_IMG)
+all: $(DISK_IMG) $(DISK_COMPACT_IMG) $(DISK_PROTECTED_COMPACT_IMG) $(DISK_ELF_COMPACT_IMG) $(DISK_LONGMODE_IMG) $(DISK_LONGMODE_IMG)
 
 # Create build directory
 $(BUILD_DIR):
@@ -97,6 +100,15 @@ $(DISK_ELF_COMPACT_IMG): $(BOOT_ELF_COMPACT_BIN)
 	dd if=/dev/zero of=$(DISK_ELF_COMPACT_IMG) bs=512 count=2880
 	dd if=$(BOOT_ELF_COMPACT_BIN) of=$(DISK_ELF_COMPACT_IMG) bs=512 count=1 conv=notrunc
 
+# Assemble long mode bootloader
+$(BOOT_LONGMODE_BIN): $(BOOT_LONGMODE_ASM) | $(BUILD_DIR)
+	$(ASM) -f bin $(BOOT_LONGMODE_ASM) -o $(BOOT_LONGMODE_BIN) -I include/
+
+# Create disk image with long mode bootloader
+$(DISK_LONGMODE_IMG): $(BOOT_LONGMODE_BIN)
+	dd if=/dev/zero of=$(DISK_LONGMODE_IMG) bs=512 count=2880
+	dd if=$(BOOT_LONGMODE_BIN) of=$(DISK_LONGMODE_IMG) bs=512 count=1 conv=notrunc
+
 # Test basic bootloader in QEMU
 test: $(DISK_IMG)
 	$(QEMU) -drive format=raw,file=$(DISK_IMG) -no-reboot -no-shutdown -nographic
@@ -149,6 +161,14 @@ debug-elf-loader: $(DISK_ELF_LOADER_IMG)
 debug-elf-compact: $(DISK_ELF_COMPACT_IMG)
 	$(QEMU) -drive format=raw,file=$(DISK_ELF_COMPACT_IMG) -no-reboot -no-shutdown -s -S
 
+# Test long mode bootloader in QEMU
+test-longmode: $(DISK_LONGMODE_IMG)
+	$(QEMU) -drive format=raw,file=$(DISK_LONGMODE_IMG) -no-reboot -no-shutdown -nographic
+
+# Debug long mode bootloader
+debug-longmode: $(DISK_LONGMODE_IMG)
+	$(QEMU) -drive format=raw,file=$(DISK_LONGMODE_IMG) -no-reboot -no-shutdown -s -S
+
 # Clean build files
 clean:
 	rm -rf $(BUILD_DIR)
@@ -158,4 +178,4 @@ install-deps:
 	sudo apt-get update
 	sudo apt-get install -y nasm qemu-system-x86
 
-.PHONY: all test test-enhanced test-compact debug debug-enhanced debug-compact test-protected debug-protected test-protected-compact debug-protected-compact test-elf-loader test-elf-compact debug-elf-loader debug-elf-compact clean install-deps
+.PHONY: all test test-enhanced test-compact debug debug-enhanced debug-compact test-protected debug-protected test-protected-compact debug-protected-compact test-elf-loader test-elf-compact debug-elf-loader debug-elf-compact test-longmode debug-longmode clean install-deps
