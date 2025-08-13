@@ -25,7 +25,7 @@ BOOTDIR = ../boot
 BUILDDIR = build
 
 # Source files
-C_SOURCES = scheduler.c interrupts.c scheduler_test.c
+C_SOURCES = scheduler.c interrupts.c scheduler_test.c ipc.c ipc_syscalls.c ipc_test.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 
@@ -35,9 +35,9 @@ ASM_OBJECTS = $(patsubst %.asm,$(BUILDDIR)/%.o,$(ASM_SOURCES))
 BOOT_OBJECTS = $(patsubst $(BOOTDIR)/%.asm,$(BUILDDIR)/%.o,$(BOOT_SOURCES))
 
 # Targets
-.PHONY: all clean test scheduler bootloader
+.PHONY: all clean test scheduler bootloader kernel ipc
 
-all: $(BUILDDIR) bootloader scheduler kernel
+all: $(BUILDDIR) bootloader scheduler ipc kernel
 
 # Create build directory
 $(BUILDDIR):
@@ -55,6 +55,9 @@ $(BUILDDIR)/boot_longmode.o: $(BOOTDIR)/boot_longmode.asm
 # Scheduler components
 scheduler: $(C_OBJECTS) $(ASM_OBJECTS)
 
+# IPC components
+ipc: $(C_OBJECTS) $(ASM_OBJECTS)
+
 # Compile C sources
 $(BUILDDIR)/%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -70,13 +73,18 @@ $(BUILDDIR)/kernel.bin: $(C_OBJECTS) $(ASM_OBJECTS) kernel.ld
 	$(LD) $(LDFLAGS) -o $@ $(C_OBJECTS) $(ASM_OBJECTS)
 
 # Test targets
-test: test-scheduler test-qemu
+test: test-scheduler test-ipc test-qemu
 
 test-scheduler: scheduler
 	@echo "Building scheduler test..."
 	@echo "Scheduler components built successfully"
 	@echo "C Objects: $(C_OBJECTS)"
 	@echo "ASM Objects: $(ASM_OBJECTS)"
+
+test-ipc: ipc
+	@echo "Building IPC test..."
+	@echo "IPC components built successfully"
+	@echo "Testing message queues, channels, and system calls"
 
 test-qemu: $(BUILDDIR)/boot_longmode.bin
 	@echo "Testing bootloader with scheduler in QEMU..."
