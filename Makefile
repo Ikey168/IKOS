@@ -1,13 +1,40 @@
-# IKOS Bootloader Makefile
-# Builds the bootloader for real mode initialization and ELF kernel loading
+# IKOS Kernel Makefile
+# Builds the bootloader and kernel with comprehensive system components
 
 # Assembler and tools
 ASM = nasm
+CC = gcc
+LD = ld
 QEMU = qemu-system-x86_64
+
+# Compiler flags
+CFLAGS = -m64 -ffreestanding -mcmodel=large -mno-red-zone -mno-mmx -mno-sse -mno-sse2 \
+         -Wall -Wextra -std=c99 -O2 -g -Iinclude/
+ASMFLAGS = -f elf64 -g -Iinclude/
+LDFLAGS = -T kernel/kernel.ld -nostdlib
 
 # Directories
 BOOT_DIR = boot
+KERNEL_DIR = kernel
+TESTS_DIR = tests
 BUILD_DIR = build
+INCLUDE_DIR = include
+
+# Kernel source files
+KERNEL_C_SOURCES = $(wildcard $(KERNEL_DIR)/*.c)
+KERNEL_ASM_SOURCES = $(wildcard $(KERNEL_DIR)/*.asm)
+KERNEL_OBJECTS = $(patsubst $(KERNEL_DIR)/%.c,$(BUILD_DIR)/%.o,$(KERNEL_C_SOURCES)) \
+                 $(patsubst $(KERNEL_DIR)/%.asm,$(BUILD_DIR)/%.o,$(KERNEL_ASM_SOURCES))
+
+# Test source files
+TEST_C_SOURCES = $(wildcard $(TESTS_DIR)/*.c)
+TEST_OBJECTS = $(patsubst $(TESTS_DIR)/%.c,$(BUILD_DIR)/test_%.o,$(TEST_C_SOURCES))
+
+# VMM specific files
+VMM_SOURCES = $(KERNEL_DIR)/vmm.c $(KERNEL_DIR)/vmm_cow.c $(KERNEL_DIR)/vmm_regions.c \
+              $(KERNEL_DIR)/vmm_interrupts.c $(KERNEL_DIR)/vmm_asm.asm
+VMM_OBJECTS = $(BUILD_DIR)/vmm.o $(BUILD_DIR)/vmm_cow.o $(BUILD_DIR)/vmm_regions.o \
+              $(BUILD_DIR)/vmm_interrupts.o $(BUILD_DIR)/vmm_asm.o
 
 # Files
 BOOT_ASM = $(BOOT_DIR)/boot.asm
@@ -35,12 +62,55 @@ DISK_ELF_LOADER_IMG = $(BUILD_DIR)/ikos_elf_loader.img
 DISK_ELF_COMPACT_IMG = $(BUILD_DIR)/ikos_elf_compact.img
 DISK_LONGMODE_IMG = $(BUILD_DIR)/ikos_longmode.img
 
-# Default target
-all: $(DISK_IMG) $(DISK_COMPACT_IMG) $(DISK_PROTECTED_COMPACT_IMG) $(DISK_ELF_COMPACT_IMG) $(DISK_LONGMODE_IMG) $(DISK_LONGMODE_IMG)
+# Default target - build kernel with VMM
+all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(DISK_LONGMODE_IMG)
+
+# Kernel ELF binary
+KERNEL_ELF = $(BUILD_DIR)/kernel.elf
 
 # Create build directory
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
+
+# =============================================================================
+# KERNEL BUILD RULES
+# =============================================================================
+
+# Build kernel ELF
+$(BUILD_DIR)/kernel.elf: $(KERNEL_OBJECTS) | $(BUILD_DIR)
+	$(LD) $(LDFLAGS) $(KERNEL_OBJECTS) -o $@
+
+# Compile C source files
+$(BUILD_DIR)/%.o: $(KERNEL_DIR)/%.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Compile assembly files
+$(BUILD_DIR)/%.o: $(KERNEL_DIR)/%.asm | $(BUILD_DIR)
+	$(ASM) $(ASMFLAGS) $< -o $@
+
+# Compile test files
+$(BUILD_DIR)/test_%.o: $(TESTS_DIR)/%.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Build VMM test executable
+$(BUILD_DIR)/vmm_test: $(VMM_OBJECTS) $(BUILD_DIR)/test_vmm.o | $(BUILD_DIR)
+	$(CC) -o $@ $^ -nostdlib -lgcc
+
+# =============================================================================
+# VMM SPECIFIC TARGETS
+# =============================================================================
+
+# Build VMM only
+vmm: $(VMM_OBJECTS)
+	@echo "VMM components built successfully"
+
+# Run VMM tests
+test-vmm: $(BUILD_DIR)/vmm_test
+	$(BUILD_DIR)/vmm_test
+
+# VMM smoke test
+vmm-smoke: $(BUILD_DIR)/vmm_test
+	$(BUILD_DIR)/vmm_test smoke
 
 # Assemble bootloader
 $(BOOT_BIN): $(BOOT_ASM) | $(BUILD_DIR)

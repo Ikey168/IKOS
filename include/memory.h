@@ -4,6 +4,23 @@
 #ifndef MEMORY_H
 #define MEMORY_H
 
+#include <stdint.h>
+#include <stddef.h>
+
+/* Basic memory functions */
+void* kmalloc(size_t size);
+void kfree(void* ptr);
+void* memset(void* dest, int value, size_t count);
+void* memcpy(void* dest, const void* src, size_t count);
+int memcmp(const void* ptr1, const void* ptr2, size_t count);
+
+/* String functions */
+size_t strlen(const char* str);
+char* strcpy(char* dest, const char* src);
+char* strncpy(char* dest, const char* src, size_t count);
+int strcmp(const char* str1, const char* str2);
+int strncmp(const char* str1, const char* str2, size_t count);
+
 /* Real Mode Memory Layout */
 #define BOOTLOADER_ADDR     0x7C00    /* BIOS loads bootloader here */
 #define BOOTLOADER_SIZE     0x200     /* 512 bytes */
@@ -56,17 +73,6 @@
 #define PD_BASE             0x3000    /* Page Directory base address */
 #define PT_BASE             0x4000    /* Page Table base address */
 #define PAGING_AREA_SIZE    0x5000    /* 20KB total for paging structures */
-
-/* Page Flags */
-#define PAGE_PRESENT        0x01      /* Page is present in memory */
-#define PAGE_WRITABLE       0x02      /* Page is writable */
-#define PAGE_USER           0x04      /* User mode access allowed */
-#define PAGE_WRITETHROUGH   0x08      /* Write-through caching */
-#define PAGE_CACHEDISABLE   0x10      /* Cache disabled */
-#define PAGE_ACCESSED       0x20      /* Page has been accessed */
-#define PAGE_DIRTY          0x40      /* Page has been written to */
-#define PAGE_LARGE          0x80      /* Large page (2MB for PD entries) */
-#define PAGE_GLOBAL         0x100     /* Global page (not flushed on CR3 reload) */
 
 /* Virtual Memory Layout */
 #define KERNEL_VIRTUAL_BASE 0xFFFFFFFF80000000ULL  /* -2GB virtual address */
