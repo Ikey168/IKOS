@@ -194,6 +194,127 @@ clean:
 # Install required tools (for Ubuntu/Debian)
 install-deps:
 	sudo apt-get update
-	sudo apt-get install -y nasm qemu-system-x86
+	sudo apt-get install -y nasm qemu-system-x86 ovmf
 
-.PHONY: all test test-enhanced test-compact debug debug-enhanced debug-compact test-protected debug-protected test-protected-compact debug-protected-compact test-elf-loader test-elf-compact debug-elf-loader debug-elf-compact test-longmode debug-longmode clean install-deps
+# =============================================================================
+# COMPREHENSIVE TESTING SUITE (Issue #8)
+# =============================================================================
+
+# Build debug-enabled bootloaders for testing
+debug-builds: $(BUILD_DIR)
+	$(ASM) -f bin $(BOOT_DIR)/boot_longmode_debug.asm -o $(BUILD_DIR)/ikos_longmode_debug.img -DDEBUG_ENABLED
+
+# Run comprehensive QEMU testing suite
+test-qemu: $(DISK_LONGMODE_IMG) debug-builds
+	@echo "=== Running QEMU Testing Suite ==="
+	./test_qemu.sh
+
+# Set up real hardware testing environment
+setup-real-hardware: $(DISK_LONGMODE_IMG)
+	@echo "=== Setting up Real Hardware Testing ==="
+	./test_real_hardware.sh
+
+# Create BIOS/UEFI compatibility testing environment
+setup-compat-tests:
+	@echo "=== Creating BIOS/UEFI Compatibility Tests ==="
+	./create_bios_uefi_compat.sh
+
+# Run automated compatibility tests
+test-compat: $(DISK_LONGMODE_IMG) debug-builds
+	@echo "=== Running Automated Compatibility Tests ==="
+	@if [ -d "bios_uefi_compat" ]; then \
+		cd bios_uefi_compat && ./automated_compat_test.sh; \
+	else \
+		echo "Please run 'make setup-compat-tests' first"; \
+		exit 1; \
+	fi
+
+# Create USB bootable device (requires sudo)
+create-usb: $(DISK_LONGMODE_IMG)
+	@echo "=== Creating USB Bootable Device ==="
+	@echo "This will run the real hardware testing script"
+	sudo ./test_real_hardware.sh
+
+# Run comprehensive test suite (QEMU + Compatibility)
+test-all: test-qemu test-compat
+	@echo "=== All Tests Complete ==="
+	@echo "Check test results in:"
+	@echo "- qemu_test_results/"
+	@echo "- bios_uefi_compat/test_results/"
+
+# Debug with serial output enabled
+debug-serial: $(DISK_LONGMODE_IMG)
+	$(QEMU) -drive format=raw,file=$(DISK_LONGMODE_IMG) -no-reboot -no-shutdown -s -S -serial stdio
+
+# Debug with GDB integration
+debug-gdb: $(DISK_LONGMODE_IMG)
+	@echo "Starting QEMU with GDB server on port 1234"
+	@echo "Connect with: gdb -ex 'target remote localhost:1234'"
+	$(QEMU) -drive format=raw,file=$(DISK_LONGMODE_IMG) -no-reboot -no-shutdown -s -S -nographic
+
+# Performance testing
+test-performance: $(DISK_LONGMODE_IMG)
+	@echo "=== Performance Testing ==="
+	@echo "Testing boot time and memory usage..."
+	time $(QEMU) -drive format=raw,file=$(DISK_LONGMODE_IMG) -no-reboot -no-shutdown -nographic & \
+	sleep 5 && kill $$!
+
+# Hardware compatibility check
+check-hardware:
+	@echo "=== Hardware Compatibility Check ==="
+	@if [ -f "real_hardware_test/diagnose_hardware.sh" ]; then \
+		./real_hardware_test/diagnose_hardware.sh; \
+	else \
+		echo "Please run 'make setup-real-hardware' first"; \
+	fi
+
+# Clean all testing artifacts
+clean-tests:
+	rm -rf qemu_test_results/
+	rm -rf bios_uefi_compat/test_results/
+	rm -rf real_hardware_test/
+
+# Clean everything including test setups
+clean-all: clean clean-tests
+	rm -rf bios_uefi_compat/
+	rm -rf real_hardware_test/
+
+# Help target for testing commands
+help-testing:
+	@echo "IKOS Bootloader Testing Commands:"
+	@echo "=================================="
+	@echo ""
+	@echo "Setup Commands:"
+	@echo "  make setup-compat-tests    - Create BIOS/UEFI compatibility tests"
+	@echo "  make setup-real-hardware   - Set up real hardware testing tools"
+	@echo ""
+	@echo "Testing Commands:"
+	@echo "  make test-qemu            - Run comprehensive QEMU tests"
+	@echo "  make test-compat          - Run BIOS/UEFI compatibility tests"
+	@echo "  make test-all             - Run all automated tests"
+	@echo "  make test-performance     - Run performance benchmarks"
+	@echo ""
+	@echo "Hardware Testing:"
+	@echo "  make create-usb           - Create bootable USB (requires sudo)"
+	@echo "  make check-hardware       - Check hardware compatibility"
+	@echo ""
+	@echo "Debug Commands:"
+	@echo "  make debug-serial         - Debug with serial output"
+	@echo "  make debug-gdb            - Debug with GDB integration"
+	@echo ""
+	@echo "Cleanup Commands:"
+	@echo "  make clean-tests          - Clean test results only"
+	@echo "  make clean-all            - Clean everything including test setups"
+	@echo ""
+
+.PHONY: all test test-enhanced test-compact debug debug-enhanced debug-compact test-protected debug-protected test-protected-compact debug-protected-compact test-elf-loader test-elf-compact debug-elf-loader debug-elf-compact test-longmode debug-longmode clean install-deps debug-builds test-qemu setup-real-hardware setup-compat-tests test-compat create-usb test-all debug-serial debug-gdb test-performance check-hardware clean-tests clean-all help-testing
+
+# QEMU and Real Hardware Test Suite
+qemu-test:
+	bash qemu_test.sh
+
+real-hardware-test:
+	@echo "See real_hardware_test.md for instructions on USB and PXE boot testing."
+
+bios-uefi-test:
+	@echo "See real_hardware_test.md for BIOS/UEFI compatibility steps."
