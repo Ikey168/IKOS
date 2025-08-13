@@ -42,6 +42,12 @@ INTERRUPT_SOURCES = $(KERNEL_DIR)/idt.c $(KERNEL_DIR)/interrupt_handlers.c \
 INTERRUPT_OBJECTS = $(BUILD_DIR)/idt.o $(BUILD_DIR)/interrupt_handlers.o \
                     $(BUILD_DIR)/interrupt_stubs.o
 
+# User-space process execution specific files
+USERSPACE_SOURCES = $(KERNEL_DIR)/process.c $(KERNEL_DIR)/elf_loader.c \
+                    $(KERNEL_DIR)/syscalls.c $(KERNEL_DIR)/user_mode.asm
+USERSPACE_OBJECTS = $(BUILD_DIR)/process.o $(BUILD_DIR)/elf_loader.o \
+                    $(BUILD_DIR)/syscalls.o $(BUILD_DIR)/user_mode.o
+
 # Files
 BOOT_ASM = $(BOOT_DIR)/boot.asm
 BOOT_ENHANCED_ASM = $(BOOT_DIR)/boot_enhanced.asm
@@ -68,8 +74,8 @@ DISK_ELF_LOADER_IMG = $(BUILD_DIR)/ikos_elf_loader.img
 DISK_ELF_COMPACT_IMG = $(BUILD_DIR)/ikos_elf_compact.img
 DISK_LONGMODE_IMG = $(BUILD_DIR)/ikos_longmode.img
 
-# Default target - build kernel with VMM and interrupt handling
-all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(BUILD_DIR)/interrupt_test $(DISK_LONGMODE_IMG)
+# Default target - build kernel with VMM, interrupt handling, and user-space support
+all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(BUILD_DIR)/interrupt_test $(BUILD_DIR)/userspace_test $(DISK_LONGMODE_IMG)
 
 # Kernel ELF binary
 KERNEL_ELF = $(BUILD_DIR)/kernel.elf
@@ -106,6 +112,10 @@ $(BUILD_DIR)/vmm_test: $(VMM_OBJECTS) $(BUILD_DIR)/test_vmm.o | $(BUILD_DIR)
 $(BUILD_DIR)/interrupt_test: $(INTERRUPT_OBJECTS) $(BUILD_DIR)/test_interrupts.o | $(BUILD_DIR)
 	$(CC) -o $@ $^ -nostdlib -lgcc
 
+# Build user-space process execution test executable
+$(BUILD_DIR)/userspace_test: $(USERSPACE_OBJECTS) $(BUILD_DIR)/test_user_space.o | $(BUILD_DIR)
+	$(CC) -o $@ $^ -nostdlib -lgcc -no-pie
+
 # =============================================================================
 # VMM SPECIFIC TARGETS
 # =============================================================================
@@ -137,6 +147,22 @@ test-interrupts: $(BUILD_DIR)/interrupt_test
 # Interrupt smoke test
 interrupt-smoke: $(BUILD_DIR)/interrupt_test
 	$(BUILD_DIR)/interrupt_test smoke
+
+# =============================================================================
+# USER-SPACE PROCESS EXECUTION TARGETS
+# =============================================================================
+
+# Build user-space process execution only
+userspace: $(USERSPACE_OBJECTS)
+	@echo "User-space process execution components built successfully"
+
+# Run user-space tests
+test-userspace: $(BUILD_DIR)/userspace_test
+	$(BUILD_DIR)/userspace_test
+
+# User-space smoke test
+userspace-smoke: $(BUILD_DIR)/userspace_test
+	$(BUILD_DIR)/userspace_test smoke
 
 # Assemble bootloader
 $(BOOT_BIN): $(BOOT_ASM) | $(BUILD_DIR)
