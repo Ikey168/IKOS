@@ -52,6 +52,10 @@ USERSPACE_OBJECTS = $(BUILD_DIR)/process.o $(BUILD_DIR)/elf_loader.o \
 PROCESS_MANAGER_SOURCES = $(KERNEL_DIR)/process_manager.c $(KERNEL_DIR)/pm_syscalls.c $(KERNEL_DIR)/string_utils.c
 PROCESS_MANAGER_OBJECTS = $(BUILD_DIR)/process_manager.o $(BUILD_DIR)/pm_syscalls.o $(BUILD_DIR)/string_utils.o
 
+# Virtual File System specific files
+VFS_SOURCES = $(KERNEL_DIR)/vfs.c $(KERNEL_DIR)/ramfs.c
+VFS_OBJECTS = $(BUILD_DIR)/vfs.o $(BUILD_DIR)/ramfs.o
+
 # Files
 BOOT_ASM = $(BOOT_DIR)/boot.asm
 BOOT_ENHANCED_ASM = $(BOOT_DIR)/boot_enhanced.asm
@@ -78,8 +82,8 @@ DISK_ELF_LOADER_IMG = $(BUILD_DIR)/ikos_elf_loader.img
 DISK_ELF_COMPACT_IMG = $(BUILD_DIR)/ikos_elf_compact.img
 DISK_LONGMODE_IMG = $(BUILD_DIR)/ikos_longmode.img
 
-# Default target - build kernel with VMM, interrupt handling, user-space support, and process manager
-all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(BUILD_DIR)/interrupt_test $(BUILD_DIR)/userspace_test $(BUILD_DIR)/process_manager_test $(DISK_LONGMODE_IMG)
+# Default target - build kernel with VMM, interrupt handling, user-space support, process manager, and VFS
+all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(BUILD_DIR)/interrupt_test $(BUILD_DIR)/userspace_test $(BUILD_DIR)/process_manager_test $(BUILD_DIR)/vfs_test $(DISK_LONGMODE_IMG)
 
 # Kernel ELF binary
 KERNEL_ELF = $(BUILD_DIR)/kernel.elf
@@ -123,6 +127,10 @@ $(BUILD_DIR)/userspace_test: $(USERSPACE_OBJECTS) $(BUILD_DIR)/test_user_space.o
 # Build process manager test executable
 $(BUILD_DIR)/process_manager_test: $(PROCESS_MANAGER_OBJECTS) $(BUILD_DIR)/test_stubs.o $(TESTS_DIR)/test_process_manager.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $(PROCESS_MANAGER_OBJECTS) $(BUILD_DIR)/test_stubs.o $(TESTS_DIR)/test_process_manager.c -nostdlib -lgcc -no-pie
+
+# Build VFS test executable
+$(BUILD_DIR)/vfs_test: $(VFS_OBJECTS) $(BUILD_DIR)/test_vfs.o | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $@ $(VFS_OBJECTS) $(BUILD_DIR)/test_vfs.o -nostdlib -lgcc -no-pie
 
 # =============================================================================
 # VMM SPECIFIC TARGETS
@@ -187,6 +195,22 @@ test-process-manager: $(BUILD_DIR)/process_manager_test
 # Process manager smoke test
 process-manager-smoke: $(BUILD_DIR)/process_manager_test
 	$(BUILD_DIR)/process_manager_test smoke
+
+# =============================================================================
+# VFS TARGETS
+# =============================================================================
+
+# Build VFS only
+vfs: $(VFS_OBJECTS)
+	@echo "VFS components built successfully"
+
+# Run VFS tests
+test-vfs: $(BUILD_DIR)/vfs_test
+	$(BUILD_DIR)/vfs_test
+
+# VFS smoke test
+vfs-smoke: $(BUILD_DIR)/vfs_test
+	$(BUILD_DIR)/vfs_test smoke
 
 # Assemble bootloader
 $(BOOT_BIN): $(BOOT_ASM) | $(BUILD_DIR)
