@@ -48,6 +48,10 @@ USERSPACE_SOURCES = $(KERNEL_DIR)/process.c $(KERNEL_DIR)/elf_loader.c \
 USERSPACE_OBJECTS = $(BUILD_DIR)/process.o $(BUILD_DIR)/elf_loader.o \
                     $(BUILD_DIR)/syscalls.o $(BUILD_DIR)/user_mode.o
 
+# Process Manager specific files
+PROCESS_MANAGER_SOURCES = $(KERNEL_DIR)/process_manager.c $(KERNEL_DIR)/pm_syscalls.c $(KERNEL_DIR)/string_utils.c
+PROCESS_MANAGER_OBJECTS = $(BUILD_DIR)/process_manager.o $(BUILD_DIR)/pm_syscalls.o $(BUILD_DIR)/string_utils.o
+
 # Files
 BOOT_ASM = $(BOOT_DIR)/boot.asm
 BOOT_ENHANCED_ASM = $(BOOT_DIR)/boot_enhanced.asm
@@ -74,8 +78,8 @@ DISK_ELF_LOADER_IMG = $(BUILD_DIR)/ikos_elf_loader.img
 DISK_ELF_COMPACT_IMG = $(BUILD_DIR)/ikos_elf_compact.img
 DISK_LONGMODE_IMG = $(BUILD_DIR)/ikos_longmode.img
 
-# Default target - build kernel with VMM, interrupt handling, and user-space support
-all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(BUILD_DIR)/interrupt_test $(BUILD_DIR)/userspace_test $(DISK_LONGMODE_IMG)
+# Default target - build kernel with VMM, interrupt handling, user-space support, and process manager
+all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(BUILD_DIR)/interrupt_test $(BUILD_DIR)/userspace_test $(BUILD_DIR)/process_manager_test $(DISK_LONGMODE_IMG)
 
 # Kernel ELF binary
 KERNEL_ELF = $(BUILD_DIR)/kernel.elf
@@ -115,6 +119,10 @@ $(BUILD_DIR)/interrupt_test: $(INTERRUPT_OBJECTS) $(BUILD_DIR)/test_interrupts.o
 # Build user-space process execution test executable
 $(BUILD_DIR)/userspace_test: $(USERSPACE_OBJECTS) $(BUILD_DIR)/test_user_space.o | $(BUILD_DIR)
 	$(CC) -o $@ $^ -nostdlib -lgcc -no-pie
+
+# Build process manager test executable
+$(BUILD_DIR)/process_manager_test: $(PROCESS_MANAGER_OBJECTS) $(BUILD_DIR)/test_stubs.o $(TESTS_DIR)/test_process_manager.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $@ $(PROCESS_MANAGER_OBJECTS) $(BUILD_DIR)/test_stubs.o $(TESTS_DIR)/test_process_manager.c -nostdlib -lgcc -no-pie
 
 # =============================================================================
 # VMM SPECIFIC TARGETS
@@ -163,6 +171,22 @@ test-userspace: $(BUILD_DIR)/userspace_test
 # User-space smoke test
 userspace-smoke: $(BUILD_DIR)/userspace_test
 	$(BUILD_DIR)/userspace_test smoke
+
+# =============================================================================
+# PROCESS MANAGER TARGETS
+# =============================================================================
+
+# Build process manager only
+process-manager: $(PROCESS_MANAGER_OBJECTS) $(USERSPACE_OBJECTS)
+	@echo "Process manager components built successfully"
+
+# Run process manager tests
+test-process-manager: $(BUILD_DIR)/process_manager_test
+	$(BUILD_DIR)/process_manager_test
+
+# Process manager smoke test
+process-manager-smoke: $(BUILD_DIR)/process_manager_test
+	$(BUILD_DIR)/process_manager_test smoke
 
 # Assemble bootloader
 $(BOOT_BIN): $(BOOT_ASM) | $(BUILD_DIR)
