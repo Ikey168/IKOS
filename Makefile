@@ -168,6 +168,14 @@ test-userspace: $(BUILD_DIR)/userspace_test
 userspace-smoke: $(BUILD_DIR)/userspace_test
 	$(BUILD_DIR)/userspace_test smoke
 
+# User-space functional test
+userspace-functional: build/functional_test
+	build/functional_test smoke
+
+# Build functional test
+build/functional_test: tests/test_functional.c build/vmm_stubs.o build/process.o build/elf_loader.o build/syscalls.o build/libc.o | $(BUILD_DIR)
+	gcc -std=c99 -O2 -g -Iinclude/ tests/test_functional.c build/vmm_stubs.o build/process.o build/elf_loader.o build/syscalls.o build/libc.o -o $@ -static
+
 # Assemble bootloader
 $(BOOT_BIN): $(BOOT_ASM) | $(BUILD_DIR)
 	$(ASM) -f bin $(BOOT_ASM) -o $(BOOT_BIN)

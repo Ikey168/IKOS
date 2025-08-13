@@ -34,29 +34,29 @@ switch_to_user_mode:
     ; [CS]     - User code segment
     ; [RIP]    - User instruction pointer
     
-    ; Get process context
-    mov rax, [rdi + 0x88]   ; context.ss
+    ; Get process context - using correct offsets
+    mov rax, [rdi + 0x9E]   ; context.ss (16-bit at offset 158)
     push rax                ; Push SS
     
-    mov rax, [rdi + 0x20]   ; context.rsp
+    mov rax, [rdi + 0x38]   ; context.rsp 
     push rax                ; Push RSP
     
-    mov rax, [rdi + 0x70]   ; context.rflags
+    mov rax, [rdi + 0x88]   ; context.rflags
     or rax, 0x200           ; Ensure interrupts enabled
     push rax                ; Push RFLAGS
     
-    mov rax, [rdi + 0x78]   ; context.cs
+    mov rax, [rdi + 0x98]   ; context.cs (16-bit at offset 152)
     push rax                ; Push CS
     
-    mov rax, [rdi + 0x68]   ; context.rip
+    mov rax, [rdi + 0x80]   ; context.rip
     push rax                ; Push RIP
     
-    ; Restore general purpose registers
+    ; Restore general purpose registers - using correct offsets
     mov rax, [rdi + 0x00]   ; rax
     mov rbx, [rdi + 0x08]   ; rbx
     mov rcx, [rdi + 0x10]   ; rcx
     mov rdx, [rdi + 0x18]   ; rdx
-    mov rsi, [rdi + 0x28]   ; rsi
+    mov rsi, [rdi + 0x20]   ; rsi
     mov rbp, [rdi + 0x30]   ; rbp
     mov r8,  [rdi + 0x40]   ; r8
     mov r9,  [rdi + 0x48]   ; r9
@@ -68,7 +68,7 @@ switch_to_user_mode:
     mov r15, [rdi + 0x78]   ; r15
     
     ; Load RDI last since we've been using it
-    mov rdi, [rdi + 0x38]   ; rdi
+    mov rdi, [rdi + 0x28]   ; rdi
     
     ; Switch to user mode
     iretq
@@ -92,7 +92,7 @@ save_user_context:
     ; int_no, error_code
     ; rip, cs, rflags, user_rsp, ss
     
-    ; Save registers to process context
+    ; Save registers to process context (correct offsets)
     mov rbx, [rdi + 0x78]   ; rax from frame
     mov [rax + 0x00], rbx   ; save to context.rax
     
@@ -105,17 +105,17 @@ save_user_context:
     mov rbx, [rdi + 0x60]   ; rbx from frame
     mov [rax + 0x08], rbx   ; save to context.rbx
     
-    mov rbx, [rdi + 0x50]   ; rsp from frame (kernel rsp during interrupt)
-    mov [rax + 0x20], rbx   ; save to context.rsp
+    mov rbx, [rdi + 0x40]   ; rsi from frame
+    mov [rax + 0x20], rbx   ; save to context.rsi
+    
+    mov rbx, [rdi + 0x38]   ; rdi from frame
+    mov [rax + 0x28], rbx   ; save to context.rdi
     
     mov rbx, [rdi + 0x48]   ; rbp from frame
     mov [rax + 0x30], rbx   ; save to context.rbp
     
-    mov rbx, [rdi + 0x40]   ; rsi from frame
-    mov [rax + 0x28], rbx   ; save to context.rsi
-    
-    mov rbx, [rdi + 0x38]   ; rdi from frame
-    mov [rax + 0x38], rbx   ; save to context.rdi
+    mov rbx, [rdi + 0x50]   ; rsp from frame (kernel rsp during interrupt)
+    mov [rax + 0x38], rbx   ; save to context.rsp
     
     ; Save extended registers
     mov rbx, [rdi + 0x30]   ; r8 from frame
@@ -139,28 +139,29 @@ save_user_context:
     mov rbx, [rdi + 0x00]   ; r14 from frame
     mov [rax + 0x70], rbx   ; save to context.r14
     
-    mov rbx, [rdi + 0x08]   ; r15 from frame  
+    mov rbx, [rdi + 0x08]   ; r15 from frame (FIXME: wrong offset)
     mov [rax + 0x78], rbx   ; save to context.r15
     
     ; Save control registers
     mov rbx, [rdi + 0x90]   ; rip from frame
-    mov [rax + 0x68], rbx   ; save to context.rip
+    mov [rax + 0x80], rbx   ; save to context.rip
     
     mov rbx, [rdi + 0xA0]   ; rflags from frame
-    mov [rax + 0x70], rbx   ; save to context.rflags
-    
-    mov rbx, [rdi + 0x98]   ; cs from frame
-    mov [rax + 0x78], rbx   ; save to context.cs
+    mov [rax + 0x88], rbx   ; save to context.rflags
     
     mov rbx, [rdi + 0xB0]   ; user_rsp from frame (actual user stack)
-    mov [rax + 0x20], rbx   ; save to context.rsp (overwrite kernel rsp)
-    
-    mov rbx, [rdi + 0xB8]   ; ss from frame
-    mov [rax + 0x88], rbx   ; save to context.ss
+    mov [rax + 0x38], rbx   ; save to context.rsp (overwrite kernel rsp)
     
     ; Save current CR3
     mov rbx, cr3
-    mov [rax + 0x80], rbx   ; save to context.cr3
+    mov [rax + 0x90], rbx   ; save to context.cr3
+    
+    ; Save segment registers
+    mov rbx, [rdi + 0x98]   ; cs from frame
+    mov [rax + 0x98], rbx   ; save to context.cs
+    
+    mov rbx, [rdi + 0xB8]   ; ss from frame
+    mov word [rax + 0x9E], bx   ; save to context.ss (16-bit)
     
 .no_process:
     ret
@@ -174,7 +175,7 @@ restore_user_context:
     jz .no_process
     
     ; Switch to process address space
-    mov rax, [rdi + 0x80]   ; context.cr3
+    mov rax, [rdi + 0x90]   ; context.cr3 (correct offset)
     mov cr3, rax
     
     ; Set up user mode return

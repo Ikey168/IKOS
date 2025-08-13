@@ -406,9 +406,10 @@ void process_get_stats(process_stats_t* stats) {
 }
 
 /**
- * Simple debug print - to be replaced with proper implementation
+ * Simple debug print - basic implementation for testing
  */
 static void debug_print(const char* format, ...) {
-    /* TODO: Implement proper debug printing */
+    /* For now, do nothing - this would be replaced with proper debug implementation */
+    /* In a real kernel, this might write to a serial port or debug console */
     (void)format; /* Suppress unused parameter warning */
 }

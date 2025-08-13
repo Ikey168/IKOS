@@ -264,9 +264,9 @@ int elf_create_test_program(void** elf_data, size_t* elf_size) {
 }
 
 /**
- * Simple debug print - to be replaced with proper implementation
+ * Simple debug print - basic implementation for testing
  */
 static void debug_print(const char* format, ...) {
-    /* TODO: Implement proper debug printing */
+    /* For now, do nothing - this would be replaced with proper debug implementation */
     (void)format; /* Suppress unused parameter warning */
 }

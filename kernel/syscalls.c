@@ -214,6 +214,7 @@ static long sys_getppid_impl(void) {
 int syscall_init(void) {
     /* TODO: Set up system call interrupt handler */
     /* This would involve setting up interrupt 0x80 or using SYSCALL instruction */
+    /* For now, we just indicate successful initialization */
     
     debug_print("System call handling initialized\n");
     return 0;
@@ -294,9 +295,9 @@ int copy_to_user(void* user_ptr, const void* kernel_ptr, size_t size) {
 }
 
 /**
- * Simple debug print - to be replaced with proper implementation
+ * Simple debug print - basic implementation for testing
  */
 static void debug_print(const char* format, ...) {
-    /* TODO: Implement proper debug printing */
+    /* For now, do nothing - this would be replaced with proper debug implementation */
     (void)format; /* Suppress unused parameter warning */
 }
