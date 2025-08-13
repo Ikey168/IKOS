@@ -102,7 +102,7 @@ $(BUILD_DIR)/%.o: $(KERNEL_DIR)/%.asm | $(BUILD_DIR)
 
 # Compile test files
 $(BUILD_DIR)/test_%.o: $(TESTS_DIR)/%.c | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+	gcc -std=c99 -O2 -g -Iinclude/ -c $< -o $@
 
 # Build VMM test executable
 $(BUILD_DIR)/vmm_test: $(VMM_OBJECTS) $(BUILD_DIR)/test_vmm.o | $(BUILD_DIR)
@@ -113,8 +113,12 @@ $(BUILD_DIR)/interrupt_test: $(INTERRUPT_OBJECTS) $(BUILD_DIR)/test_interrupts.o
 	$(CC) -o $@ $^ -nostdlib -lgcc
 
 # Build user-space process execution test executable
-$(BUILD_DIR)/userspace_test: $(USERSPACE_OBJECTS) $(BUILD_DIR)/test_user_space.o | $(BUILD_DIR)
-	$(CC) -o $@ $^ -nostdlib -lgcc -no-pie
+$(BUILD_DIR)/userspace_test: $(USERSPACE_OBJECTS) $(BUILD_DIR)/libc.o $(BUILD_DIR)/vmm_stubs.o $(BUILD_DIR)/test_user_space.o | $(BUILD_DIR)
+	$(CC) -o $@ $(BUILD_DIR)/test_user_space.o $(BUILD_DIR)/vmm_stubs.o -static
+
+# Compile VMM stubs for testing
+$(BUILD_DIR)/vmm_stubs.o: $(TESTS_DIR)/vmm_stubs.c | $(BUILD_DIR)
+	gcc -std=c99 -O2 -g -Iinclude/ -c $< -o $@
 
 # =============================================================================
 # VMM SPECIFIC TARGETS

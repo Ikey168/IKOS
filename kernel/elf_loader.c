@@ -147,33 +147,35 @@ int elf64_load_segment(const void* elf_data, const elf64_program_header_t* phdr,
     debug_print("Loading segment: vaddr=0x%lX, size=%lu, pages=%zu\n",
                target_addr, phdr->p_memsz, num_pages);
     
-        /* Allocate pages for the segment */
-        for (size_t i = 0; i < num_pages; i++) {
-            uint64_t page_vaddr = page_start + (i * PAGE_SIZE);
-            
-            /* Allocate physical page */
-            uint64_t page_paddr = vmm_alloc_page();
-            if (page_paddr == 0) {
-                debug_print("Failed to allocate physical page\n");
-                return -1;
-            }
-            
-            /* Determine page permissions */
-            uint32_t flags = VMM_FLAG_USER;
-            if (phdr->p_flags & PF_W) {
-                flags |= VMM_FLAG_WRITE;
-            }
-            if (phdr->p_flags & PF_X) {
-                flags |= VMM_FLAG_EXEC;
-            }
-            
-            /* Map the page */
-            vm_space_t* current_space = vmm_get_current_space();
-            if (vmm_map_page(current_space, page_vaddr, page_paddr, flags) != 0) {
-                debug_print("Failed to map page for segment\n");
-                return -1;
-            }
-        }    /* Copy segment data if it exists in file */
+    /* Allocate pages for the segment */
+    for (size_t i = 0; i < num_pages; i++) {
+        uint64_t page_vaddr = page_start + (i * PAGE_SIZE);
+        
+        /* Allocate physical page */
+        uint64_t page_paddr = vmm_alloc_page();
+        if (page_paddr == 0) {
+            debug_print("Failed to allocate physical page\n");
+            return -1;
+        }
+        
+        /* Determine page permissions */
+        uint32_t flags = VMM_FLAG_USER;
+        if (phdr->p_flags & PF_W) {
+            flags |= VMM_FLAG_WRITE;
+        }
+        if (phdr->p_flags & PF_X) {
+            flags |= VMM_FLAG_EXEC;
+        }
+        
+        /* Map the page */
+        vm_space_t* current_space = vmm_get_current_space();
+        if (vmm_map_page(current_space, page_vaddr, page_paddr, flags) != 0) {
+            debug_print("Failed to map page for segment\n");
+            return -1;
+        }
+    }
+    
+    /* Copy segment data if it exists in file */
     if (phdr->p_filesz > 0) {
         const char* src = (const char*)elf_data + phdr->p_offset;
         char* dst = (char*)target_addr;

@@ -124,6 +124,7 @@ int elf_validate(const void* elf_data);
 int elf_load_process(const void* elf_data, size_t size, uint64_t* entry_point);
 int elf64_parse_headers(const elf64_header_t* header, elf64_program_header_t** phdrs);
 int elf64_load_segment(const void* elf_data, const elf64_program_header_t* phdr, uint64_t base_addr);
+int elf_create_test_program(void** elf_data, size_t* elf_size);
 
 /* Kernel Loading Constants */
 #define KERNEL_LOAD_ADDRESS     0x100000    /* 1MB - Standard kernel load address */

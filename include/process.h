@@ -36,11 +36,11 @@ typedef enum {
 } process_priority_t;
 
 /* User-space memory layout constants */
-#define USER_SPACE_START        0x400000        /* 4MB - Start of user space */
-#define USER_SPACE_END          0x800000000UL   /* 32GB - End of user space */
-#define USER_STACK_SIZE         0x200000        /* 2MB default stack size */
-#define USER_HEAP_START         0x600000        /* 6MB - Start of user heap */
-#define USER_CODE_LOAD_ADDR     0x400000        /* 4MB - Default code load address */
+#define USER_SPACE_START        USER_VIRTUAL_BASE    /* 4MB - Start of user space */
+#define USER_SPACE_END          USER_VIRTUAL_END     /* 128TB - End of user space */
+#define USER_STACK_SIZE         0x200000             /* 2MB default stack size */
+#define USER_HEAP_START         USER_HEAP_BASE       /* 8MB - Start of user heap */
+#define USER_CODE_LOAD_ADDR     USER_VIRTUAL_BASE    /* 4MB - Default code load address */
 
 /* Process limits */
 #define MAX_PROCESSES           256             /* Maximum number of processes */
@@ -158,6 +158,10 @@ void sys_exit(int status);
 int sys_wait(int* status);
 int sys_getpid(void);
 int sys_getppid(void);
+
+/* System call handler and initialization */
+int syscall_init(void);
+long handle_system_call(interrupt_frame_t* frame);
 
 /* Process statistics */
 typedef struct {

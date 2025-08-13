@@ -2,10 +2,14 @@
  * Tests process creation, ELF loading, and user mode execution
  */
 
-#include "process.h"
-#include "elf.h"
+#include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+
+/* Include after standard headers to avoid conflicts */
+#include "process.h"
+#include "elf.h"
 
 /* Test framework */
 static int tests_passed = 0;
@@ -188,27 +192,13 @@ void test_system_calls(void) {
     test_print("System call tests completed.\n\n");
 }
 
-/* Simple string comparison */
-int strcmp(const char* str1, const char* str2) {
-    while (*str1 && (*str1 == *str2)) {
-        str1++;
-        str2++;
-    }
-    return *(unsigned char*)str1 - *(unsigned char*)str2;
-}
-
-/* Get offset of member in structure - remove duplicate definition */
+/* Get offset of member in structure */
 #ifndef offsetof
 #define offsetof(type, member) ((size_t)&(((type*)0)->member))
 #endif
 
 /* Mock print function */
 void test_print(const char* format, ...) {
-    /* Simple test output simulation */
-    static int call_count = 0;
-    call_count++;
-    
-    if (call_count > 200) {
-        return; /* Prevent runaway */
-    }
+    /* Use standard printf for testing */
+    printf("%s", format);
 }
