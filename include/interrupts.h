@@ -8,6 +8,14 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/* Interrupt frame structure */
+typedef struct {
+    uint64_t r15, r14, r13, r12, r11, r10, r9, r8;
+    uint64_t rdi, rsi, rbp, rsp, rbx, rdx, rcx, rax;
+    uint64_t int_no, error_code;
+    uint64_t rip, cs, rflags, user_rsp, ss;
+} interrupt_frame_t;
+
 /* Function declarations */
 void setup_timer_interrupt(uint32_t frequency);
 void enable_interrupts(void);
