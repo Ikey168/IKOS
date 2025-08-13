@@ -73,6 +73,20 @@ protected_mode:
     jmp CODE64_SEL:long_mode
 
 ; ============================================================================
+; Paging Constants
+; ============================================================================
+PML4_BASE       equ 0x1000    ; Page Map Level 4 base address
+PDPT_BASE       equ 0x2000    ; Page Directory Pointer Table base address  
+PD_BASE         equ 0x3000    ; Page Directory base address
+PT_BASE         equ 0x4000    ; Page Table base address
+
+; Page flags
+PAGE_PRESENT    equ 0x01      ; Page is present in memory
+PAGE_WRITABLE   equ 0x02      ; Page is writable
+PAGE_USER       equ 0x04      ; User mode access allowed
+PAGE_LARGE      equ 0x80      ; Large page (2MB for PD entries)
+
+; ============================================================================
 ; 32-bit Functions (must be before [BITS 64])
 ; ============================================================================
 [BITS 32]
@@ -82,22 +96,43 @@ setup_paging:
     push ecx
     push edi
     
-    ; Clear page table area (16KB)
-    mov edi, 0x1000
-    mov ecx, 0x1000       ; 4096 dwords (16KB)
+    ; Clear page table area (20KB for PML4, PDPT, PD, PT, and extra space)
+    mov edi, PML4_BASE
+    mov ecx, 0x1400       ; 5120 dwords (20KB)
     xor eax, eax
     cld
     rep stosd
     
-    ; Set up PML4 (Page Map Level 4) at 0x1000
-    mov dword [0x1000], 0x2003    ; Point to PDPT, present + writable
+    ; === Set up PML4 (Page Map Level 4) at 0x1000 ===
+    ; First entry points to PDPT
+    mov dword [PML4_BASE], PDPT_BASE | PAGE_PRESENT | PAGE_WRITABLE
+    mov dword [PML4_BASE + 4], 0x00000000  ; Clear upper 32 bits
     
-    ; Set up PDPT (Page Directory Pointer Table) at 0x2000
-    mov dword [0x2000], 0x3003    ; Point to PD, present + writable
+    ; === Set up PDPT (Page Directory Pointer Table) at 0x2000 ===
+    ; First entry points to PD
+    mov dword [PDPT_BASE], PD_BASE | PAGE_PRESENT | PAGE_WRITABLE
+    mov dword [PDPT_BASE + 4], 0x00000000  ; Clear upper 32 bits
     
-    ; Set up PD (Page Directory) at 0x3000
-    ; Identity map first 2MB using 2MB pages
-    mov dword [0x3000], 0x000083  ; 2MB page, present + writable + large page
+    ; === Set up PD (Page Directory) at 0x3000 ===
+    ; Map first 4MB using 2MB pages (identity mapping)
+    ; Entry 0: 0x000000 - 0x1FFFFF (first 2MB)
+    mov dword [PD_BASE], 0x000000 | PAGE_PRESENT | PAGE_WRITABLE | PAGE_LARGE
+    mov dword [PD_BASE + 4], 0x00000000
+    
+    ; Entry 1: 0x200000 - 0x3FFFFF (second 2MB)  
+    mov dword [PD_BASE + 8], 0x200000 | PAGE_PRESENT | PAGE_WRITABLE | PAGE_LARGE
+    mov dword [PD_BASE + 12], 0x00000000
+    
+    ; === Optional: Set up PT for fine-grained mapping ===
+    ; If you need 4KB pages instead of 2MB pages, uncomment the following:
+    ; Replace first PD entry to point to PT instead of using large page
+    ; mov dword [PD_BASE], PT_BASE | PAGE_PRESENT | PAGE_WRITABLE
+    ; Then map individual 4KB pages in PT_BASE
+    
+    ; === Map kernel sections into virtual memory ===
+    ; Current setup provides identity mapping for first 4MB:
+    ; 0x000000-0x1FFFFF: Boot code, GDT, IDT, page tables
+    ; 0x200000-0x3FFFFF: Kernel code and data sections
     
     pop edi
     pop ecx

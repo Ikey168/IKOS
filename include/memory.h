@@ -50,6 +50,29 @@
 #define IDT_BASE            0x8800    /* IDT location in memory */
 #define IDT_SIZE            0x800     /* 2KB for IDT (256 entries max) */
 
+/* Paging Structures Memory Layout */
+#define PML4_BASE           0x1000    /* Page Map Level 4 base address */
+#define PDPT_BASE           0x2000    /* Page Directory Pointer Table base address */
+#define PD_BASE             0x3000    /* Page Directory base address */
+#define PT_BASE             0x4000    /* Page Table base address */
+#define PAGING_AREA_SIZE    0x5000    /* 20KB total for paging structures */
+
+/* Page Flags */
+#define PAGE_PRESENT        0x01      /* Page is present in memory */
+#define PAGE_WRITABLE       0x02      /* Page is writable */
+#define PAGE_USER           0x04      /* User mode access allowed */
+#define PAGE_WRITETHROUGH   0x08      /* Write-through caching */
+#define PAGE_CACHEDISABLE   0x10      /* Cache disabled */
+#define PAGE_ACCESSED       0x20      /* Page has been accessed */
+#define PAGE_DIRTY          0x40      /* Page has been written to */
+#define PAGE_LARGE          0x80      /* Large page (2MB for PD entries) */
+#define PAGE_GLOBAL         0x100     /* Global page (not flushed on CR3 reload) */
+
+/* Virtual Memory Layout */
+#define KERNEL_VIRTUAL_BASE 0xFFFFFFFF80000000ULL  /* -2GB virtual address */
+#define KERNEL_PHYSICAL_BASE 0x100000             /* 1MB physical address */
+#define IDENTITY_MAP_SIZE   0x400000              /* 4MB identity mapped */
+
 /* Kernel Loading Memory Layout */
 #define KERNEL_BUFFER       0x10000   /* 64KB - Temporary kernel buffer */
 #define DISK_BUFFER         0x20000   /* 128KB - Disk read buffer */
