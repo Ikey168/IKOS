@@ -28,6 +28,22 @@
 #define DISK_WRITE          0x03      /* Write sectors */
 #define DISK_RESET          0x00      /* Reset disk system */
 
+/* Serial Port Debugging */
+#define SERIAL_COM1_BASE    0x3F8     /* COM1 base port */
+#define SERIAL_COM2_BASE    0x2F8     /* COM2 base port */
+#define SERIAL_DATA_PORT    0x00      /* Data register offset */
+#define SERIAL_STATUS_PORT  0x05      /* Line status register offset */
+#define SERIAL_READY_BIT    0x20      /* Transmitter ready bit */
+
+/* Framebuffer Constants */
+#define VGA_TEXT_BUFFER     0xB8000   /* VGA text mode buffer */
+#define VGA_WIDTH           80        /* Screen width in characters */
+#define VGA_HEIGHT          25        /* Screen height in characters */
+#define VGA_ATTR_NORMAL     0x07      /* White on black */
+#define VGA_ATTR_DEBUG      0x0A      /* Light green on black */
+#define VGA_ATTR_ERROR      0x0C      /* Light red on black */
+#define VGA_ATTR_SUCCESS    0x0B      /* Light cyan on black */
+
 /* Character Constants */
 #define CHAR_NEWLINE        0x0A      /* Line feed */
 #define CHAR_RETURN         0x0D      /* Carriage return */

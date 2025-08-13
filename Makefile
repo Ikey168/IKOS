@@ -109,6 +109,16 @@ $(DISK_LONGMODE_IMG): $(BOOT_LONGMODE_BIN)
 	dd if=/dev/zero of=$(DISK_LONGMODE_IMG) bs=512 count=2880
 	dd if=$(BOOT_LONGMODE_BIN) of=$(DISK_LONGMODE_IMG) bs=512 count=1 conv=notrunc
 
+# Debug-enabled long mode bootloader
+$(BUILD_DIR)/boot_longmode_debug.bin: boot/boot_longmode_debug.asm | $(BUILD_DIR)
+	$(ASM) -f bin boot/boot_longmode_debug.asm -o $(BUILD_DIR)/boot_longmode_debug.bin -I include/
+
+$(BUILD_DIR)/ikos_longmode_debug.img: $(BUILD_DIR)/boot_longmode_debug.bin
+	dd if=/dev/zero of=$(BUILD_DIR)/ikos_longmode_debug.img bs=512 count=2880
+	dd if=$(BUILD_DIR)/boot_longmode_debug.bin of=$(BUILD_DIR)/ikos_longmode_debug.img bs=512 count=1 conv=notrunc
+
+debug-build: $(BUILD_DIR)/ikos_longmode_debug.img
+
 # Test basic bootloader in QEMU
 test: $(DISK_IMG)
 	$(QEMU) -drive format=raw,file=$(DISK_IMG) -no-reboot -no-shutdown -nographic
@@ -120,6 +130,14 @@ test-enhanced: $(DISK_ENHANCED_IMG)
 # Test with debugging
 debug: $(DISK_IMG)
 	$(QEMU) -drive format=raw,file=$(DISK_IMG) -no-reboot -no-shutdown -s -S
+
+# Test debug-enabled bootloader with serial output
+test-debug: $(BUILD_DIR)/ikos_longmode_debug.img
+	$(QEMU) -fda $(BUILD_DIR)/ikos_longmode_debug.img -boot a -nographic -chardev stdio,id=char0 -serial chardev:char0
+
+# Debug session with GDB support
+debug-gdb: $(BUILD_DIR)/ikos_longmode_debug.img
+	$(QEMU) -fda $(BUILD_DIR)/ikos_longmode_debug.img -boot a -S -s -nographic -serial file:debug_serial.log
 
 # Test compact bootloader in QEMU
 test-compact: $(DISK_COMPACT_IMG)
