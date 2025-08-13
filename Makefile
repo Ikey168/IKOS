@@ -36,6 +36,12 @@ VMM_SOURCES = $(KERNEL_DIR)/vmm.c $(KERNEL_DIR)/vmm_cow.c $(KERNEL_DIR)/vmm_regi
 VMM_OBJECTS = $(BUILD_DIR)/vmm.o $(BUILD_DIR)/vmm_cow.o $(BUILD_DIR)/vmm_regions.o \
               $(BUILD_DIR)/vmm_interrupts.o $(BUILD_DIR)/vmm_asm.o
 
+# Interrupt handling specific files
+INTERRUPT_SOURCES = $(KERNEL_DIR)/idt.c $(KERNEL_DIR)/interrupt_handlers.c \
+                    $(KERNEL_DIR)/interrupt_stubs.asm
+INTERRUPT_OBJECTS = $(BUILD_DIR)/idt.o $(BUILD_DIR)/interrupt_handlers.o \
+                    $(BUILD_DIR)/interrupt_stubs.o
+
 # Files
 BOOT_ASM = $(BOOT_DIR)/boot.asm
 BOOT_ENHANCED_ASM = $(BOOT_DIR)/boot_enhanced.asm
@@ -62,8 +68,8 @@ DISK_ELF_LOADER_IMG = $(BUILD_DIR)/ikos_elf_loader.img
 DISK_ELF_COMPACT_IMG = $(BUILD_DIR)/ikos_elf_compact.img
 DISK_LONGMODE_IMG = $(BUILD_DIR)/ikos_longmode.img
 
-# Default target - build kernel with VMM
-all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(DISK_LONGMODE_IMG)
+# Default target - build kernel with VMM and interrupt handling
+all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(BUILD_DIR)/interrupt_test $(DISK_LONGMODE_IMG)
 
 # Kernel ELF binary
 KERNEL_ELF = $(BUILD_DIR)/kernel.elf
@@ -96,6 +102,10 @@ $(BUILD_DIR)/test_%.o: $(TESTS_DIR)/%.c | $(BUILD_DIR)
 $(BUILD_DIR)/vmm_test: $(VMM_OBJECTS) $(BUILD_DIR)/test_vmm.o | $(BUILD_DIR)
 	$(CC) -o $@ $^ -nostdlib -lgcc
 
+# Build interrupt handling test executable
+$(BUILD_DIR)/interrupt_test: $(INTERRUPT_OBJECTS) $(BUILD_DIR)/test_interrupts.o | $(BUILD_DIR)
+	$(CC) -o $@ $^ -nostdlib -lgcc
+
 # =============================================================================
 # VMM SPECIFIC TARGETS
 # =============================================================================
@@ -111,6 +121,22 @@ test-vmm: $(BUILD_DIR)/vmm_test
 # VMM smoke test
 vmm-smoke: $(BUILD_DIR)/vmm_test
 	$(BUILD_DIR)/vmm_test smoke
+
+# =============================================================================
+# INTERRUPT HANDLING TARGETS
+# =============================================================================
+
+# Build interrupt handling only
+interrupts: $(INTERRUPT_OBJECTS)
+	@echo "Interrupt handling components built successfully"
+
+# Run interrupt tests
+test-interrupts: $(BUILD_DIR)/interrupt_test
+	$(BUILD_DIR)/interrupt_test
+
+# Interrupt smoke test
+interrupt-smoke: $(BUILD_DIR)/interrupt_test
+	$(BUILD_DIR)/interrupt_test smoke
 
 # Assemble bootloader
 $(BOOT_BIN): $(BOOT_ASM) | $(BUILD_DIR)

@@ -32,15 +32,4 @@ void save_task_context(void* task);
 void restore_task_context(void* task);
 void switch_task_context(void* prev_task, void* next_task);
 
-/* Memory management functions (should be defined elsewhere) */
-void* kmalloc(uint32_t size);
-void kfree(void* ptr);
-int task_setup_memory(void* task, uint32_t stack_size);
-void task_free_stack(void* stack_base, uint32_t stack_size);
-
-/* Standard library functions (should be defined elsewhere) */
-void* memset(void* ptr, int value, uint32_t size);
-char* strncpy(char* dest, const char* src, uint32_t n);
-char* strcpy(char* dest, const char* src);
-
 #endif /* INTERRUPTS_H */
