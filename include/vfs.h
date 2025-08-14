@@ -9,6 +9,9 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+/* Type definitions for compatibility */
+typedef long long ssize_t;              /* Signed size type */
+
 /* VFS Configuration */
 #define VFS_MAX_PATH_LENGTH         1024    /* Maximum path length */
 #define VFS_MAX_FILENAME_LENGTH     255     /* Maximum filename length */

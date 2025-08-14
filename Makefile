@@ -56,6 +56,10 @@ PROCESS_MANAGER_OBJECTS = $(BUILD_DIR)/process_manager.o $(BUILD_DIR)/pm_syscall
 VFS_SOURCES = $(KERNEL_DIR)/vfs.c $(KERNEL_DIR)/ramfs.c
 VFS_OBJECTS = $(BUILD_DIR)/vfs.o $(BUILD_DIR)/ramfs.o
 
+# FAT Filesystem specific files
+FAT_SOURCES = $(KERNEL_DIR)/fat.c $(KERNEL_DIR)/ramdisk.c
+FAT_OBJECTS = $(BUILD_DIR)/fat.o $(BUILD_DIR)/ramdisk.o
+
 # Files
 BOOT_ASM = $(BOOT_DIR)/boot.asm
 BOOT_ENHANCED_ASM = $(BOOT_DIR)/boot_enhanced.asm
@@ -82,8 +86,8 @@ DISK_ELF_LOADER_IMG = $(BUILD_DIR)/ikos_elf_loader.img
 DISK_ELF_COMPACT_IMG = $(BUILD_DIR)/ikos_elf_compact.img
 DISK_LONGMODE_IMG = $(BUILD_DIR)/ikos_longmode.img
 
-# Default target - build kernel with VMM, interrupt handling, user-space support, process manager, and VFS
-all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(BUILD_DIR)/interrupt_test $(BUILD_DIR)/userspace_test $(BUILD_DIR)/process_manager_test $(BUILD_DIR)/vfs_test $(DISK_LONGMODE_IMG)
+# Default target - build kernel with VMM, interrupt handling, user-space support, process manager, VFS, and FAT filesystem
+all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(BUILD_DIR)/interrupt_test $(BUILD_DIR)/userspace_test $(BUILD_DIR)/process_manager_test $(BUILD_DIR)/vfs_test $(BUILD_DIR)/fat_test $(DISK_LONGMODE_IMG)
 
 # Kernel ELF binary
 KERNEL_ELF = $(BUILD_DIR)/kernel.elf
@@ -131,6 +135,10 @@ $(BUILD_DIR)/process_manager_test: $(PROCESS_MANAGER_OBJECTS) $(BUILD_DIR)/test_
 # Build VFS test executable
 $(BUILD_DIR)/vfs_test: $(VFS_OBJECTS) $(BUILD_DIR)/test_vfs.o | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $(VFS_OBJECTS) $(BUILD_DIR)/test_vfs.o -nostdlib -lgcc -no-pie
+
+# Build FAT filesystem test executable
+$(BUILD_DIR)/fat_test: $(FAT_OBJECTS) $(VFS_OBJECTS) $(BUILD_DIR)/test_fat.o | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $@ $(FAT_OBJECTS) $(VFS_OBJECTS) $(BUILD_DIR)/test_fat.o -nostdlib -lgcc -no-pie
 
 # =============================================================================
 # VMM SPECIFIC TARGETS
@@ -211,6 +219,22 @@ test-vfs: $(BUILD_DIR)/vfs_test
 # VFS smoke test
 vfs-smoke: $(BUILD_DIR)/vfs_test
 	$(BUILD_DIR)/vfs_test smoke
+
+# =============================================================================
+# FAT FILESYSTEM TARGETS
+# =============================================================================
+
+# Build FAT filesystem only
+fat: $(FAT_OBJECTS) $(VFS_OBJECTS)
+	@echo "FAT filesystem components built successfully"
+
+# Run FAT filesystem tests
+test-fat: $(BUILD_DIR)/fat_test
+	$(BUILD_DIR)/fat_test
+
+# FAT filesystem smoke test
+fat-smoke: $(BUILD_DIR)/fat_test
+	$(BUILD_DIR)/fat_test smoke
 
 # Assemble bootloader
 $(BOOT_BIN): $(BOOT_ASM) | $(BUILD_DIR)
