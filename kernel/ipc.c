@@ -22,12 +22,17 @@ static ipc_queue_t* process_queues[MAX_TASKS];
 /* IPC system lock (would use proper synchronization in full implementation) */
 static bool ipc_lock = false;
 
+/* Keyboard driver support */
+static uint32_t keyboard_driver_pid = 0;
+static bool keyboard_driver_registered = false;
+
 /* Forward declarations */
 static int validate_permissions(uint32_t queue_id, uint32_t pid, uint32_t required_perm);
 static void update_statistics(void);
 static int enqueue_message(ipc_queue_t* queue, ipc_message_t* message);
 static ipc_message_t* dequeue_message(ipc_queue_t* queue, uint32_t flags);
 static void wakeup_blocked_processes(ipc_queue_t* queue, bool senders, bool receivers);
+static int handle_keyboard_event(ipc_message_t* message);
 
 /**
  * Initialize the IPC system
@@ -766,4 +771,72 @@ static void update_statistics(void) {
     }
     
     ipc_statistics.memory_used = memory_used;
+}
+
+/**
+ * Register keyboard driver with IPC system
+ */
+int ipc_register_keyboard_driver(uint32_t driver_pid) {
+    if (keyboard_driver_registered) {
+        return IPC_ERROR_PERMISSION; // Already registered
+    }
+    
+    keyboard_driver_pid = driver_pid;
+    keyboard_driver_registered = true;
+    
+    return IPC_SUCCESS;
+}
+
+/**
+ * Unregister keyboard driver
+ */
+int ipc_unregister_keyboard_driver(uint32_t driver_pid) {
+    if (!keyboard_driver_registered || keyboard_driver_pid != driver_pid) {
+        return IPC_ERROR_PERMISSION;
+    }
+    
+    keyboard_driver_pid = 0;
+    keyboard_driver_registered = false;
+    
+    return IPC_SUCCESS;
+}
+
+/**
+ * Send keyboard event to registered applications
+ */
+int ipc_send_keyboard_event(ipc_message_t* kbd_event) {
+    if (!kbd_event || kbd_event->type != IPC_MSG_KEYBOARD_EVENT) {
+        return IPC_ERROR_INVALID_MSG;
+    }
+    
+    // Find all processes subscribed to keyboard events
+    ipc_channel_t* kbd_channel = ipc_find_channel("keyboard_events");
+    if (!kbd_channel) {
+        return IPC_ERROR_CHANNEL_NOT_FOUND;
+    }
+    
+    return ipc_send_to_channel(kbd_channel->channel_id, kbd_event, IPC_FLAG_NON_BLOCKING);
+}
+
+/**
+ * Handle keyboard-specific IPC messages
+ */
+static int handle_keyboard_event(ipc_message_t* message) {
+    if (!message) {
+        return IPC_ERROR_INVALID_MSG;
+    }
+    
+    switch (message->type) {
+        case IPC_MSG_KEYBOARD_EVENT:
+            return ipc_send_keyboard_event(message);
+            
+        case IPC_MSG_KEYBOARD_REGISTER:
+            return ipc_register_keyboard_driver(message->sender_pid);
+            
+        case IPC_MSG_KEYBOARD_UNREGISTER:
+            return ipc_unregister_keyboard_driver(message->sender_pid);
+            
+        default:
+            return IPC_ERROR_INVALID_MSG;
+    }
 }

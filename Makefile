@@ -60,6 +60,12 @@ VFS_OBJECTS = $(BUILD_DIR)/vfs.o $(BUILD_DIR)/ramfs.o
 FAT_SOURCES = $(KERNEL_DIR)/fat.c $(KERNEL_DIR)/ramdisk.c
 FAT_OBJECTS = $(BUILD_DIR)/fat.o $(BUILD_DIR)/ramdisk.o
 
+# Keyboard Driver specific files
+KEYBOARD_SOURCES = $(KERNEL_DIR)/keyboard.c $(KERNEL_DIR)/keyboard_syscalls.c \
+                   $(KERNEL_DIR)/keyboard_user_api.c
+KEYBOARD_OBJECTS = $(BUILD_DIR)/keyboard.o $(BUILD_DIR)/keyboard_syscalls.o \
+                   $(BUILD_DIR)/keyboard_user_api.o
+
 # Files
 BOOT_ASM = $(BOOT_DIR)/boot.asm
 BOOT_ENHANCED_ASM = $(BOOT_DIR)/boot_enhanced.asm
@@ -86,8 +92,8 @@ DISK_ELF_LOADER_IMG = $(BUILD_DIR)/ikos_elf_loader.img
 DISK_ELF_COMPACT_IMG = $(BUILD_DIR)/ikos_elf_compact.img
 DISK_LONGMODE_IMG = $(BUILD_DIR)/ikos_longmode.img
 
-# Default target - build kernel with VMM, interrupt handling, user-space support, process manager, VFS, and FAT filesystem
-all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(BUILD_DIR)/interrupt_test $(BUILD_DIR)/userspace_test $(BUILD_DIR)/process_manager_test $(BUILD_DIR)/vfs_test $(BUILD_DIR)/fat_test $(DISK_LONGMODE_IMG)
+# Default target - build kernel with VMM, interrupt handling, user-space support, process manager, VFS, FAT filesystem, and keyboard driver
+all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(BUILD_DIR)/interrupt_test $(BUILD_DIR)/userspace_test $(BUILD_DIR)/process_manager_test $(BUILD_DIR)/vfs_test $(BUILD_DIR)/fat_test $(BUILD_DIR)/keyboard_test $(DISK_LONGMODE_IMG)
 
 # Kernel ELF binary
 KERNEL_ELF = $(BUILD_DIR)/kernel.elf
@@ -139,6 +145,10 @@ $(BUILD_DIR)/vfs_test: $(VFS_OBJECTS) $(BUILD_DIR)/test_vfs.o | $(BUILD_DIR)
 # Build FAT filesystem test executable
 $(BUILD_DIR)/fat_test: $(FAT_OBJECTS) $(VFS_OBJECTS) $(BUILD_DIR)/test_fat.o | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $(FAT_OBJECTS) $(VFS_OBJECTS) $(BUILD_DIR)/test_fat.o -nostdlib -lgcc -no-pie
+
+# Build keyboard driver test executable
+$(BUILD_DIR)/keyboard_test: $(KEYBOARD_OBJECTS) $(BUILD_DIR)/test_test_keyboard.o | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $@ $(KEYBOARD_OBJECTS) $(BUILD_DIR)/test_test_keyboard.o -nostdlib -lgcc -no-pie
 
 # =============================================================================
 # VMM SPECIFIC TARGETS
@@ -235,6 +245,30 @@ test-fat: $(BUILD_DIR)/fat_test
 # FAT filesystem smoke test
 fat-smoke: $(BUILD_DIR)/fat_test
 	$(BUILD_DIR)/fat_test smoke
+
+# =============================================================================
+# KEYBOARD DRIVER TARGETS
+# =============================================================================
+
+# Build keyboard driver only
+keyboard: $(KEYBOARD_OBJECTS)
+	@echo "Keyboard driver components built successfully"
+
+# Run keyboard tests
+test-keyboard: $(BUILD_DIR)/keyboard_test
+	$(BUILD_DIR)/keyboard_test
+
+# Keyboard smoke test
+keyboard-smoke: $(BUILD_DIR)/keyboard_test
+	$(BUILD_DIR)/keyboard_test smoke
+
+# Keyboard hardware test (requires actual keyboard)
+keyboard-hardware: $(BUILD_DIR)/keyboard_test
+	$(BUILD_DIR)/keyboard_test hardware
+
+# =============================================================================
+# BOOTLOADER BUILD RULES
+# =============================================================================
 
 # Assemble bootloader
 $(BOOT_BIN): $(BOOT_ASM) | $(BUILD_DIR)
