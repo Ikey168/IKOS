@@ -13,7 +13,7 @@
 
 /* Define ssize_t if not available */
 #ifndef _SSIZE_T_DEFINED
-typedef long ssize_t;
+typedef long long ssize_t;
 #define _SSIZE_T_DEFINED
 #endif
 
