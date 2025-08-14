@@ -27,6 +27,13 @@ void clear_irq_mask(uint8_t irq);
 /* Timer interrupt handler (called from assembly) */
 void timer_interrupt_handler(void);
 
+/* Interrupt registration functions */
+int register_interrupt_handler(uint8_t irq, void (*handler)(void));
+int unregister_interrupt_handler(uint8_t irq);
+
+/* CPU scheduling functions */
+void yield_cpu(void);
+
 /* Assembly context switching functions */
 void save_task_context(void* task);
 void restore_task_context(void* task);
