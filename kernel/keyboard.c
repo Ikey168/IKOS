@@ -3,383 +3,383 @@
  */
 
 #include "keyboard.h"
-#include "interrupts.h"
-#include "idt.h"
-#include "process.h"
-#include <stdint.h>
-#include <stdbool.h>
-#include <stddef.h>
+#include "ipc.h"
+#include "memory.h"
+#include "scheduler.h"
+#include <string.h>
 
-/* External functions we need */
-extern void* malloc(size_t size);
-extern void free(void* ptr);
+/* Global keyboard driver state */
+static kbd_driver_state_t kbd_state;
+static bool kbd_initialized = false;
 
-/* Implementations for interrupt and CPU functions */
-int register_interrupt_handler(uint8_t irq, void (*handler)(void)) {
-    /* For now, just use the IDT directly for keyboard IRQ */
-    if (irq == 1) {  /* Keyboard IRQ */
-        idt_set_gate(IRQ_BASE + IRQ_KEYBOARD, handler, 
-                    0x08, IDT_FLAG_PRESENT | IDT_FLAG_DPL0 | IDT_FLAG_GATE64);
-        pic_clear_mask(IRQ_KEYBOARD);
-        return 0;
-    }
-    return -1;
-}
-
-int unregister_interrupt_handler(uint8_t irq) {
-    /* For now, just mask the IRQ */
-    if (irq == 1) {  /* Keyboard IRQ */
-        pic_set_mask(IRQ_KEYBOARD);
-        return 0;
-    }
-    return -1;
-}
-
-void yield_cpu(void) {
-    /* Simple busy wait - in a real system this would be a scheduler call */
-    for (volatile int i = 0; i < 1000; i++);
-}
-
-/* External functions */
-extern void debug_print(const char* format, ...);
-extern void* memcpy(void* dest, const void* src, size_t size);
-
-/* Global keyboard state */
-static keyboard_state_t g_keyboard_state;
-static keyboard_listener_reg_t g_listeners[KEYBOARD_MAX_LISTENERS];
-static bool g_keyboard_initialized = false;
-static bool g_debug_enabled = false;
-
-/* Scancode to keycode translation table */
-static const uint8_t scancode_to_keycode[128] = {
-    0x00, KEY_ESCAPE, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6,
-    KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS, KEY_EQUALS, KEY_BACKSPACE, KEY_TAB,
-    KEY_Q, KEY_W, KEY_E, KEY_R, KEY_T, KEY_Y, KEY_U, KEY_I,
-    KEY_O, KEY_P, KEY_LBRACKET, KEY_RBRACKET, KEY_ENTER, KEY_LCTRL, KEY_A, KEY_S,
-    KEY_D, KEY_F, KEY_G, KEY_H, KEY_J, KEY_K, KEY_L, KEY_SEMICOLON,
-    KEY_APOSTROPHE, KEY_GRAVE, KEY_LSHIFT, KEY_BACKSLASH, KEY_Z, KEY_X, KEY_C, KEY_V,
-    KEY_B, KEY_N, KEY_M, KEY_COMMA, KEY_PERIOD, KEY_SLASH, KEY_RSHIFT, KEY_MULTIPLY,
-    KEY_LALT, KEY_SPACE, KEY_CAPSLOCK, KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5,
-    KEY_F6, KEY_F7, KEY_F8, KEY_F9, KEY_F10, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+/* Scancode to ASCII mapping tables */
+static const uint8_t scancode_to_ascii_lower[KBD_MAX_SCANCODE] = {
+    0,    0,   '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
+    '\t', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n',
+    0,    'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`',
+    0,    '\\', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 0,
+    '*',  0,   ' ',
+    [KEY_F1] = 0, [KEY_F2] = 0, [KEY_F3] = 0, [KEY_F4] = 0, [KEY_F5] = 0,
+    [KEY_F6] = 0, [KEY_F7] = 0, [KEY_F8] = 0, [KEY_F9] = 0, [KEY_F10] = 0
 };
 
-/* ASCII translation tables */
-static const char keycode_to_ascii_normal[256] = {
-    [KEY_Q] = 'q', [KEY_W] = 'w', [KEY_E] = 'e', [KEY_R] = 'r', [KEY_T] = 't',
-    [KEY_Y] = 'y', [KEY_U] = 'u', [KEY_I] = 'i', [KEY_O] = 'o', [KEY_P] = 'p',
-    [KEY_A] = 'a', [KEY_S] = 's', [KEY_D] = 'd', [KEY_F] = 'f', [KEY_G] = 'g',
-    [KEY_H] = 'h', [KEY_J] = 'j', [KEY_K] = 'k', [KEY_L] = 'l',
-    [KEY_Z] = 'z', [KEY_X] = 'x', [KEY_C] = 'c', [KEY_V] = 'v', [KEY_B] = 'b',
-    [KEY_N] = 'n', [KEY_M] = 'm',
-    [KEY_1] = '1', [KEY_2] = '2', [KEY_3] = '3', [KEY_4] = '4', [KEY_5] = '5',
-    [KEY_6] = '6', [KEY_7] = '7', [KEY_8] = '8', [KEY_9] = '9', [KEY_0] = '0',
-    [KEY_SPACE] = ' ', [KEY_ENTER] = '\n', [KEY_TAB] = '\t', [KEY_BACKSPACE] = '\b',
-    [KEY_MINUS] = '-', [KEY_EQUALS] = '=', [KEY_LBRACKET] = '[', [KEY_RBRACKET] = ']',
-    [KEY_SEMICOLON] = ';', [KEY_APOSTROPHE] = '\'', [KEY_GRAVE] = '`',
-    [KEY_BACKSLASH] = '\\', [KEY_COMMA] = ',', [KEY_PERIOD] = '.', [KEY_SLASH] = '/'
+static const uint8_t scancode_to_ascii_upper[KBD_MAX_SCANCODE] = {
+    0,    0,   '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\b',
+    '\t', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\n',
+    0,    'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '"', '~',
+    0,    '|',  'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?', 0,
+    '*',  0,   ' ',
+    [KEY_F1] = 0, [KEY_F2] = 0, [KEY_F3] = 0, [KEY_F4] = 0, [KEY_F5] = 0,
+    [KEY_F6] = 0, [KEY_F7] = 0, [KEY_F8] = 0, [KEY_F9] = 0, [KEY_F10] = 0
 };
-
-static const char keycode_to_ascii_shift[256] = {
-    [KEY_Q] = 'Q', [KEY_W] = 'W', [KEY_E] = 'E', [KEY_R] = 'R', [KEY_T] = 'T',
-    [KEY_Y] = 'Y', [KEY_U] = 'U', [KEY_I] = 'I', [KEY_O] = 'O', [KEY_P] = 'P',
-    [KEY_A] = 'A', [KEY_S] = 'S', [KEY_D] = 'D', [KEY_F] = 'F', [KEY_G] = 'G',
-    [KEY_H] = 'H', [KEY_J] = 'J', [KEY_K] = 'K', [KEY_L] = 'L',
-    [KEY_Z] = 'Z', [KEY_X] = 'X', [KEY_C] = 'C', [KEY_V] = 'V', [KEY_B] = 'B',
-    [KEY_N] = 'N', [KEY_M] = 'M',
-    [KEY_1] = '!', [KEY_2] = '@', [KEY_3] = '#', [KEY_4] = '$', [KEY_5] = '%',
-    [KEY_6] = '^', [KEY_7] = '&', [KEY_8] = '*', [KEY_9] = '(', [KEY_0] = ')',
-    [KEY_SPACE] = ' ', [KEY_ENTER] = '\n', [KEY_TAB] = '\t', [KEY_BACKSPACE] = '\b',
-    [KEY_MINUS] = '_', [KEY_EQUALS] = '+', [KEY_LBRACKET] = '{', [KEY_RBRACKET] = '}',
-    [KEY_SEMICOLON] = ':', [KEY_APOSTROPHE] = '"', [KEY_GRAVE] = '~',
-    [KEY_BACKSLASH] = '|', [KEY_COMMA] = '<', [KEY_PERIOD] = '>', [KEY_SLASH] = '?'
-};
-
-/* Forward declarations */
-static void keyboard_process_scancode(uint8_t scancode);
-static void keyboard_add_event(const key_event_t* event);
-static void keyboard_notify_listeners(const key_event_t* event);
-static uint64_t keyboard_get_timestamp(void);
-
-/* ================================
- * Core Keyboard Driver Functions
- * ================================ */
 
 /**
  * Initialize keyboard driver
  */
-int keyboard_init(void) {
-    if (g_keyboard_initialized) {
-        return KEYBOARD_SUCCESS;
+int kbd_init(void) {
+    if (kbd_initialized) {
+        return IPC_SUCCESS;
     }
     
-    debug_print("KEYBOARD: Initializing keyboard driver...\n");
+    // Initialize driver state
+    memset(&kbd_state, 0, sizeof(kbd_state));
+    kbd_state.driver_active = true;
     
-    /* Initialize keyboard state */
-    memset(&g_keyboard_state, 0, sizeof(keyboard_state_t));
-    memset(g_listeners, 0, sizeof(g_listeners));
-    
-    /* Reset modifier state */
-    g_keyboard_state.modifiers = 0;
-    g_keyboard_state.caps_lock = false;
-    g_keyboard_state.num_lock = false;
-    g_keyboard_state.scroll_lock = false;
-    
-    /* Initialize buffer */
-    g_keyboard_state.buffer_head = 0;
-    g_keyboard_state.buffer_tail = 0;
-    g_keyboard_state.buffer_count = 0;
-    
-    /* Disable keyboard during initialization */
-    keyboard_write_command(KEYBOARD_CMD_DISABLE_KEYBOARD);
-    keyboard_wait_ready();
-    
-    /* Flush any pending data */
-    while (keyboard_read_status() & KEYBOARD_STATUS_OUTPUT_FULL) {
-        keyboard_read_data();
+    // Create keyboard events channel
+    uint32_t channel_id = ipc_create_channel("keyboard_events", true, true);
+    if (channel_id == IPC_INVALID_CHANNEL) {
+        return IPC_ERROR_CHANNEL_NOT_FOUND;
     }
     
-    /* Perform controller self-test */
-    keyboard_write_command(KEYBOARD_CMD_SELF_TEST);
-    keyboard_wait_ready();
-    uint8_t result = keyboard_read_data();
-    if (result != 0x55) {
-        debug_print("KEYBOARD: Controller self-test failed (0x%02x)\n", result);
-        return KEYBOARD_ERROR_HARDWARE;
+    // Register with IPC system
+    task_t* current_task = task_get_current();
+    if (current_task) {
+        ipc_register_keyboard_driver(current_task->pid);
     }
     
-    /* Test keyboard interface */
-    keyboard_write_command(KEYBOARD_CMD_TEST_KEYBOARD);
-    keyboard_wait_ready();
-    result = keyboard_read_data();
-    if (result != 0x00) {
-        debug_print("KEYBOARD: Keyboard interface test failed (0x%02x)\n", result);
-        return KEYBOARD_ERROR_HARDWARE;
-    }
-    
-    /* Enable keyboard */
-    keyboard_write_command(KEYBOARD_CMD_ENABLE_KEYBOARD);
-    keyboard_wait_ready();
-    
-    /* Set default configuration */
-    keyboard_write_command(KEYBOARD_CMD_READ_CONFIG);
-    keyboard_wait_ready();
-    uint8_t config = keyboard_read_data();
-    config |= 0x01;  /* Enable keyboard interrupt */
-    config &= ~0x10; /* Enable keyboard */
-    keyboard_write_command(KEYBOARD_CMD_WRITE_CONFIG);
-    keyboard_wait_ready();
-    keyboard_write_data(config);
-    keyboard_wait_ready();
-    
-    /* Register interrupt handler */
-    if (register_interrupt_handler(0x21, keyboard_interrupt_handler) != 0) {
-        debug_print("KEYBOARD: Failed to register interrupt handler\n");
-        return KEYBOARD_ERROR_INIT;
-    }
-    
-    /* Set initial LED state */
-    keyboard_set_leds(0);
-    
-    g_keyboard_initialized = true;
-    debug_print("KEYBOARD: Keyboard driver initialized successfully\n");
-    return KEYBOARD_SUCCESS;
+    kbd_initialized = true;
+    return IPC_SUCCESS;
 }
 
 /**
  * Cleanup keyboard driver
  */
-void keyboard_cleanup(void) {
-    if (!g_keyboard_initialized) {
-        return;
+int kbd_cleanup(void) {
+    if (!kbd_initialized) {
+        return IPC_SUCCESS;
     }
     
-    debug_print("KEYBOARD: Cleaning up keyboard driver...\n");
+    kbd_state.driver_active = false;
     
-    /* Disable keyboard */
-    keyboard_write_command(KEYBOARD_CMD_DISABLE_KEYBOARD);
-    keyboard_wait_ready();
+    // Unregister all applications
+    for (uint32_t i = 0; i < kbd_state.app_count; i++) {
+        kbd_unregister_application(kbd_state.registered_apps[i]);
+    }
     
-    /* Unregister interrupt handler */
-    unregister_interrupt_handler(0x21);
+    // Unregister from IPC system
+    task_t* current_task = task_get_current();
+    if (current_task) {
+        ipc_unregister_keyboard_driver(current_task->pid);
+    }
     
-    /* Clear state */
-    memset(&g_keyboard_state, 0, sizeof(keyboard_state_t));
-    memset(g_listeners, 0, sizeof(g_listeners));
-    
-    g_keyboard_initialized = false;
-    debug_print("KEYBOARD: Keyboard driver cleanup complete\n");
+    kbd_initialized = false;
+    return IPC_SUCCESS;
 }
 
 /**
- * Process raw keyboard interrupt
+ * Register application for keyboard events
  */
-void keyboard_interrupt_handler(void) {
-    if (!g_keyboard_initialized) {
-        return;
+int kbd_register_application(uint32_t pid) {
+    if (!kbd_initialized || kbd_state.app_count >= KBD_MAX_APPLICATIONS) {
+        return IPC_ERROR_QUEUE_FULL;
     }
     
-    /* Read scancode from keyboard controller */
-    uint8_t scancode = keyboard_read_data();
-    
-    if (g_debug_enabled) {
-        debug_print("KEYBOARD: Received scancode: 0x%02x\n", scancode);
-    }
-    
-    /* Process the scancode */
-    keyboard_process_scancode(scancode);
-}
-
-/**
- * Get keyboard driver statistics
- */
-void keyboard_get_stats(keyboard_state_t* stats) {
-    if (!stats || !g_keyboard_initialized) {
-        return;
-    }
-    
-    /* Copy current state */
-    memcpy(stats, &g_keyboard_state, sizeof(keyboard_state_t));
-}
-
-/**
- * Reset keyboard state
- */
-void keyboard_reset(void) {
-    if (!g_keyboard_initialized) {
-        return;
-    }
-    
-    debug_print("KEYBOARD: Resetting keyboard state...\n");
-    
-    /* Reset modifier state */
-    g_keyboard_state.modifiers = 0;
-    g_keyboard_state.caps_lock = false;
-    g_keyboard_state.num_lock = false;
-    g_keyboard_state.scroll_lock = false;
-    
-    /* Clear buffer */
-    g_keyboard_state.buffer_head = 0;
-    g_keyboard_state.buffer_tail = 0;
-    g_keyboard_state.buffer_count = 0;
-    
-    /* Reset LEDs */
-    keyboard_set_leds(0);
-    
-    debug_print("KEYBOARD: Keyboard state reset complete\n");
-}
-
-/* ================================
- * Input Buffer Management
- * ================================ */
-
-/**
- * Check if keyboard buffer has data
- */
-bool keyboard_has_data(void) {
-    return g_keyboard_initialized && (g_keyboard_state.buffer_count > 0);
-}
-
-/**
- * Get next key event from buffer (blocking)
- */
-int keyboard_get_event(key_event_t* event) {
-    if (!event || !g_keyboard_initialized) {
-        return KEYBOARD_ERROR_INVALID_PARAM;
-    }
-    
-    /* Wait for data to be available */
-    while (!keyboard_has_data()) {
-        /* In a real implementation, this would use proper blocking/waiting */
-        /* For now, just yield to other processes */
-        yield_cpu();
-    }
-    
-    return keyboard_get_event_nonblock(event);
-}
-
-/**
- * Get next key event from buffer (non-blocking)
- */
-int keyboard_get_event_nonblock(key_event_t* event) {
-    if (!event || !g_keyboard_initialized) {
-        return KEYBOARD_ERROR_INVALID_PARAM;
-    }
-    
-    if (g_keyboard_state.buffer_count == 0) {
-        return KEYBOARD_ERROR_BUFFER_EMPTY;
-    }
-    
-    /* Get event from buffer */
-    *event = g_keyboard_state.buffer[g_keyboard_state.buffer_tail];
-    
-    /* Update buffer pointers */
-    g_keyboard_state.buffer_tail = (g_keyboard_state.buffer_tail + 1) % KEYBOARD_BUFFER_SIZE;
-    g_keyboard_state.buffer_count--;
-    
-    return KEYBOARD_SUCCESS;
-}
-
-/**
- * Get ASCII character from buffer (blocking)
- */
-char keyboard_getchar(void) {
-    key_event_t event;
-    
-    while (true) {
-        if (keyboard_get_event(&event) == KEYBOARD_SUCCESS) {
-            if (event.type == KEY_EVENT_PRESS && event.ascii != 0) {
-                return event.ascii;
-            }
+    // Check if already registered
+    for (uint32_t i = 0; i < kbd_state.app_count; i++) {
+        if (kbd_state.registered_apps[i] == pid) {
+            return IPC_SUCCESS;
         }
     }
+    
+    // Subscribe to keyboard events channel
+    ipc_channel_t* kbd_channel = ipc_find_channel("keyboard_events");
+    if (kbd_channel) {
+        ipc_subscribe_channel(kbd_channel->channel_id, pid);
+    }
+    
+    kbd_state.registered_apps[kbd_state.app_count++] = pid;
+    return IPC_SUCCESS;
 }
 
 /**
- * Get ASCII character from buffer (non-blocking)
+ * Unregister application from keyboard events
  */
-int keyboard_getchar_nonblock(void) {
-    key_event_t event;
+int kbd_unregister_application(uint32_t pid) {
+    if (!kbd_initialized) {
+        return IPC_ERROR_INVALID_PID;
+    }
     
-    while (g_keyboard_state.buffer_count > 0) {
-        if (keyboard_get_event_nonblock(&event) == KEYBOARD_SUCCESS) {
-            if (event.type == KEY_EVENT_PRESS && event.ascii != 0) {
-                return (int)event.ascii;
+    // Find and remove application
+    for (uint32_t i = 0; i < kbd_state.app_count; i++) {
+        if (kbd_state.registered_apps[i] == pid) {
+            // Shift remaining applications
+            for (uint32_t j = i; j < kbd_state.app_count - 1; j++) {
+                kbd_state.registered_apps[j] = kbd_state.registered_apps[j + 1];
             }
-        } else {
+            kbd_state.app_count--;
+            return IPC_SUCCESS;
+        }
+    }
+    
+    return IPC_ERROR_INVALID_PID;
+}
+
+/**
+ * Handle keyboard interrupt and process scancode
+ */
+int kbd_handle_interrupt(uint8_t scancode) {
+    if (!kbd_initialized || !kbd_state.driver_active) {
+        return IPC_ERROR_INVALID_QUEUE;
+    }
+    
+    kbd_event_t event;
+    memset(&event, 0, sizeof(event));
+    
+    event.scancode = scancode & 0x7F;
+    event.state = (scancode & 0x80) ? KEY_RELEASED : KEY_PRESSED;
+    event.timestamp = ipc_get_timestamp();
+    
+    // Handle modifier keys
+    switch (event.scancode) {
+        case KEY_LSHIFT:
+        case KEY_RSHIFT:
+            kbd_state.shift_pressed = (event.state == KEY_PRESSED);
             break;
+        case KEY_LCTRL:
+            kbd_state.ctrl_pressed = (event.state == KEY_PRESSED);
+            break;
+        case KEY_LALT:
+            kbd_state.alt_pressed = (event.state == KEY_PRESSED);
+            break;
+        case KEY_CAPS:
+            if (event.state == KEY_PRESSED) {
+                kbd_state.caps_lock = !kbd_state.caps_lock;
+            }
+            break;
+    }
+    
+    // Set modifier flags
+    event.modifiers = 0;
+    if (kbd_state.shift_pressed) event.modifiers |= 0x01;
+    if (kbd_state.ctrl_pressed) event.modifiers |= 0x02;
+    if (kbd_state.alt_pressed) event.modifiers |= 0x04;
+    if (kbd_state.caps_lock) event.modifiers |= 0x08;
+    
+    // Convert to ASCII
+    event.ascii = kbd_scancode_to_ascii(event.scancode, 
+                                       kbd_state.shift_pressed, 
+                                       kbd_state.caps_lock);
+    
+    // Add to buffer
+    if (kbd_state.count < KBD_BUFFER_SIZE) {
+        kbd_state.buffer[kbd_state.tail].event = event;
+        kbd_state.buffer[kbd_state.tail].valid = true;
+        kbd_state.tail = (kbd_state.tail + 1) % KBD_BUFFER_SIZE;
+        kbd_state.count++;
+        kbd_state.events_processed++;
+        
+        // Send event to registered applications
+        ipc_message_t* msg = ipc_alloc_message(sizeof(kbd_event_t));
+        if (msg) {
+            msg->type = IPC_MSG_KEYBOARD_EVENT;
+            memcpy(msg->data, &event, sizeof(kbd_event_t));
+            ipc_send_keyboard_event(msg);
+            ipc_free_message(msg);
         }
+    } else {
+        kbd_state.events_dropped++;
     }
     
-    return -1;  /* No character available */
+    return IPC_SUCCESS;
 }
 
 /**
- * Peek at next event without removing it
+ * Get keyboard event from buffer
  */
-int keyboard_peek_event(key_event_t* event) {
-    if (!event || !g_keyboard_initialized) {
-        return KEYBOARD_ERROR_INVALID_PARAM;
+int kbd_get_event(kbd_event_t* event, uint32_t flags) {
+    if (!event || !kbd_initialized) {
+        return IPC_ERROR_INVALID_MSG;
     }
     
-    if (g_keyboard_state.buffer_count == 0) {
-        return KEYBOARD_ERROR_BUFFER_EMPTY;
+    if (kbd_state.count == 0) {
+        if (flags & IPC_FLAG_NON_BLOCKING) {
+            return IPC_ERROR_QUEUE_EMPTY;
+        }
+        // In full implementation, would block here
+        return IPC_ERROR_QUEUE_EMPTY;
     }
     
-    /* Copy event without removing it */
-    *event = g_keyboard_state.buffer[g_keyboard_state.buffer_tail];
+    *event = kbd_state.buffer[kbd_state.head].event;
+    kbd_state.buffer[kbd_state.head].valid = false;
+    kbd_state.head = (kbd_state.head + 1) % KBD_BUFFER_SIZE;
+    kbd_state.count--;
     
-    return KEYBOARD_SUCCESS;
+    return IPC_SUCCESS;
 }
 
 /**
- * Clear input buffer
+ * Peek at next keyboard event without removing it
+ */
+int kbd_peek_event(kbd_event_t* event) {
+    if (!event || !kbd_initialized) {
+        return IPC_ERROR_INVALID_MSG;
+    }
+    
+    if (kbd_state.count == 0) {
+        return IPC_ERROR_QUEUE_EMPTY;
+    }
+    
+    *event = kbd_state.buffer[kbd_state.head].event;
+    return IPC_SUCCESS;
+}
+
+/**
+ * Convert scancode to ASCII character
+ */
+uint8_t kbd_scancode_to_ascii(uint8_t scancode, bool shift, bool caps) {
+    if (scancode >= KBD_MAX_SCANCODE) {
+        return 0;
+    }
+    
+    bool use_upper = shift;
+    
+    // Handle caps lock for letters only
+    if (caps && scancode >= 0x10 && scancode <= 0x32) {
+        use_upper = !use_upper;
+    }
+    
+    return use_upper ? scancode_to_ascii_upper[scancode] : 
+                      scancode_to_ascii_lower[scancode];
+}
+
+/**
+ * Set keyboard LED state (placeholder)
+ */
+int kbd_set_led_state(uint8_t led_mask) {
+    // In full implementation, would control hardware LEDs
+    return IPC_SUCCESS;
+}
+
+/**
+ * Get keyboard driver state
+ */
+kbd_driver_state_t* kbd_get_state(void) {
+    return kbd_initialized ? &kbd_state : NULL;
+}
+
+/* Application API Functions */
+
+/**
+ * Initialize keyboard API for application
+ */
+int kbd_api_init(void) {
+    task_t* current_task = task_get_current();
+    if (!current_task) {
+        return IPC_ERROR_INVALID_PID;
+    }
+    
+    return kbd_register_application(current_task->pid);
+}
+
+/**
+ * Read keyboard event with timeout
+ */
+int kbd_api_read_key(kbd_event_t* event, uint32_t timeout_ms) {
+    if (!event) {
+        return IPC_ERROR_INVALID_MSG;
+    }
+    
+    task_t* current_task = task_get_current();
+    if (!current_task) {
+        return IPC_ERROR_INVALID_PID;
+    }
+    
+    ipc_queue_t* my_queue = process_queues[current_task->pid];
+    if (!my_queue) {
+        return IPC_ERROR_INVALID_QUEUE;
+    }
+    
+    // Poll for keyboard event message
+    uint32_t timeout_counter = timeout_ms;
+    while (timeout_counter > 0) {
+        ipc_message_t* msg = my_queue->head;
+        while (msg) {
+            if (msg->type == IPC_MSG_KEYBOARD_EVENT) {
+                memcpy(event, msg->data, sizeof(kbd_event_t));
+                
+                // Remove message from queue
+                if (msg->prev) msg->prev->next = msg->next;
+                if (msg->next) msg->next->prev = msg->prev;
+                if (my_queue->head == msg) my_queue->head = msg->next;
+                if (my_queue->tail == msg) my_queue->tail = msg->prev;
+                my_queue->current_count--;
+                ipc_free_message(msg);
+                
+                return IPC_SUCCESS;
+            }
+            msg = msg->next;
+        }
+        
+        sys_yield();
+        if (timeout_ms > 0) timeout_counter--;
+    }
+    
+    return IPC_ERROR_TIMEOUT;
+}
+
+/**
+ * Check if keyboard event is available
+ */
+int kbd_api_check_key(void) {
+    task_t* current_task = task_get_current();
+    if (!current_task) {
+        return 0;
+    }
+    
+    ipc_queue_t* my_queue = process_queues[current_task->pid];
+    if (!my_queue) {
+        return 0;
+    }
+    
+    ipc_message_t* msg = my_queue->head;
+    while (msg) {
+        if (msg->type == IPC_MSG_KEYBOARD_EVENT) {
+            return 1;
+        }
+        msg = msg->next;
+    }
+    
+    return 0;
+}
+
+/**
+ * Subscribe to keyboard events
+ */
+int kbd_api_subscribe_events(void) {
+    return kbd_api_init();
+}
+
+/**
+ * Unsubscribe from keyboard events
+ */
+int kbd_api_unsubscribe_events(void) {
+    task_t* current_task = task_get_current();
+    if (!current_task) {
+        return IPC_ERROR_INVALID_PID;
+    }
+    
+    return kbd_unregister_application(current_task->pid);
+}
  */
 void keyboard_clear_buffer(void) {
     if (!g_keyboard_initialized) {
