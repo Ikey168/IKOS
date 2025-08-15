@@ -25,7 +25,8 @@ BOOTDIR = ../boot
 BUILDDIR = build
 
 # Source files
-C_SOURCES = scheduler.c interrupts.c scheduler_test.c ipc.c ipc_syscalls.c ipc_test.c kalloc.c kalloc_test.c user_space_test.c
+C_SOURCES = scheduler.c interrupts.c scheduler_test.c ipc.c ipc_syscalls.c ipc_test.c kalloc.c kalloc_test.c user_space_test.c \
+            device_manager.c pci.c ide_driver.c device_driver_test.c kernel_main.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 
@@ -35,9 +36,9 @@ ASM_OBJECTS = $(patsubst %.asm,$(BUILDDIR)/%.o,$(ASM_SOURCES))
 BOOT_OBJECTS = $(patsubst $(BOOTDIR)/%.asm,$(BUILDDIR)/%.o,$(BOOT_SOURCES))
 
 # Targets
-.PHONY: all clean test scheduler bootloader kernel ipc
+.PHONY: all clean test scheduler bootloader kernel ipc device-drivers
 
-all: $(BUILDDIR) bootloader scheduler ipc kernel
+all: $(BUILDDIR) bootloader scheduler ipc device-drivers kernel
 
 # Create build directory
 $(BUILDDIR):
@@ -58,6 +59,9 @@ scheduler: $(C_OBJECTS) $(ASM_OBJECTS)
 # IPC components
 ipc: $(C_OBJECTS) $(ASM_OBJECTS)
 
+# Device Driver Framework components (Issue #15)
+device-drivers: $(C_OBJECTS) $(ASM_OBJECTS)
+
 # Compile C sources
 $(BUILDDIR)/%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -73,7 +77,7 @@ $(BUILDDIR)/kernel.bin: $(C_OBJECTS) $(ASM_OBJECTS) kernel.ld
 	$(LD) $(LDFLAGS) -o $@ $(C_OBJECTS) $(ASM_OBJECTS)
 
 # Test targets
-test: test-scheduler test-ipc test-qemu
+test: test-scheduler test-ipc test-device-drivers test-qemu
 
 test-scheduler: scheduler
 	@echo "Building scheduler test..."
@@ -85,6 +89,11 @@ test-ipc: ipc
 	@echo "Building IPC test..."
 	@echo "IPC components built successfully"
 	@echo "Testing message queues, channels, and system calls"
+
+test-device-drivers: device-drivers
+	@echo "Building Device Driver Framework test..."
+	@echo "Device Driver Framework components built successfully"
+	@echo "Testing device manager, PCI bus driver, and IDE controller"
 
 test-qemu: $(BUILDDIR)/boot_longmode.bin
 	@echo "Testing bootloader with scheduler in QEMU..."

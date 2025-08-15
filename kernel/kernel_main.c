@@ -6,6 +6,10 @@
 #include "interrupts.h"
 #include "../include/kalloc.h"
 #include "../include/syscalls.h"
+#include "../include/device_manager.h"
+#include "../include/pci.h"
+#include "../include/ide_driver.h"
+#include "../include/device_driver_test.h"
 #include <stdint.h>
 
 /* Kernel entry point called from bootloader */
@@ -35,6 +39,16 @@ void kernel_init(void) {
     
     /* Enable keyboard interrupts for input */
     pic_clear_mask(IRQ_KEYBOARD);
+    
+    /* Initialize Device Driver Framework (Issue #15) */
+    kernel_print("Initializing Device Driver Framework...\n");
+    device_manager_init();
+    pci_init();
+    ide_driver_init();
+    
+    /* Run Device Driver Framework tests */
+    kernel_print("Running Device Driver Framework tests...\n");
+    test_device_driver_framework();
     
     /* TODO: Initialize other subsystems */
     /* scheduler_init(); */
@@ -72,6 +86,9 @@ void kernel_loop(void) {
                     case 't':
                         show_timer_info();
                         break;
+                    case 'd':
+                        show_device_info();
+                        break;
                     case 'r':
                         kernel_print("Rebooting system...\n");
                         reboot_system();
@@ -100,6 +117,7 @@ void show_help(void) {
     kernel_print("h - Show this help\n");
     kernel_print("s - Show interrupt statistics\n");
     kernel_print("t - Show timer information\n");
+    kernel_print("d - Show device driver framework info\n");
     kernel_print("r - Reboot system\n");
     kernel_print("\n");
 }
@@ -152,6 +170,40 @@ void reboot_system(void) {
     
     /* If that fails, triple fault */
     __asm__ volatile ("int $0x00");
+}
+
+/**
+ * Show device driver framework information
+ */
+void show_device_info(void) {
+    device_manager_stats_t dev_stats;
+    device_manager_get_stats(&dev_stats);
+    
+    kernel_print("\nDevice Driver Framework Status:\n");
+    kernel_print("Total Devices: %u\n", dev_stats.total_devices);
+    kernel_print("Active Devices: %u\n", dev_stats.active_devices);
+    kernel_print("Total Drivers: %u\n", dev_stats.total_drivers);
+    kernel_print("Loaded Drivers: %u\n", dev_stats.loaded_drivers);
+    
+    pci_stats_t pci_stats;
+    pci_get_stats(&pci_stats);
+    
+    kernel_print("\nPCI Bus Information:\n");
+    kernel_print("Total PCI Devices: %u\n", pci_stats.total_devices);
+    kernel_print("Buses Scanned: %u\n", pci_stats.buses_scanned);
+    kernel_print("Storage Devices: %u\n", pci_stats.storage_devices);
+    kernel_print("Network Devices: %u\n", pci_stats.network_devices);
+    
+    ide_stats_t ide_stats;
+    ide_get_stats(&ide_stats);
+    
+    kernel_print("\nIDE Driver Information:\n");
+    kernel_print("Controllers Found: %u\n", ide_stats.controllers_found);
+    kernel_print("Drives Found: %u\n", ide_stats.drives_found);
+    kernel_print("Total Reads: %u\n", ide_stats.total_reads);
+    kernel_print("Total Writes: %u\n", ide_stats.total_writes);
+    
+    kernel_print("\n");
 }
 
 /**
