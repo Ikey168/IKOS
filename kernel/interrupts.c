@@ -48,12 +48,12 @@ extern void syscall_yield_entry(void);
 
 /* I/O port functions */
 static inline void outb(uint16_t port, uint8_t data) {
-    asm volatile("outb %0, %1" : : "a"(data), "Nd"(port));
+    __asm__ volatile("outb %0, %1" : : "a"(data), "Nd"(port));
 }
 
 static inline uint8_t inb(uint16_t port) {
     uint8_t data;
-    asm volatile("inb %1, %0" : "=a"(data) : "Nd"(port));
+    __asm__ volatile("inb %1, %0" : "=a"(data) : "Nd"(port));
     return data;
 }
 
@@ -130,7 +130,7 @@ static void init_idt(void) {
     idt_ptr.base = (uint64_t)&idt;
     
     // Load IDT
-    asm volatile("lidt %0" : : "m"(idt_ptr));
+    __asm__ volatile("lidt %0" : : "m"(idt_ptr));
 }
 
 /**
@@ -156,14 +156,14 @@ void setup_timer_interrupt(uint32_t frequency) {
  * Enable interrupts
  */
 void enable_interrupts(void) {
-    asm volatile("sti");
+    __asm__ volatile("sti");
 }
 
 /**
  * Disable interrupts
  */
 void disable_interrupts(void) {
-    asm volatile("cli");
+    __asm__ volatile("cli");
 }
 
 /**

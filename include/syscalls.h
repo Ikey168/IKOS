@@ -52,6 +52,11 @@ typedef struct {
 extern long handle_system_call(interrupt_frame_t* frame);
 extern int syscall_init(void);
 
+/* User-space execution testing - Issue #14 */
+void test_user_space_execution(void);
+void init_user_space_execution(void);
+void run_user_space_demo(void);
+
 /* Syscall registration functions */
 typedef long (*syscall_handler_t)(uint64_t arg1, uint64_t arg2, uint64_t arg3, 
                                    uint64_t arg4, uint64_t arg5, uint64_t arg6);

@@ -5,6 +5,7 @@
 #include "idt.h"
 #include "interrupts.h"
 #include "../include/kalloc.h"
+#include "../include/syscalls.h"
 #include <stdint.h>
 
 /* Kernel entry point called from bootloader */
@@ -176,6 +177,9 @@ void memory_init(void) {
     } else {
         kernel_print("KALLOC: Failed to initialize memory allocator (error %d)\n", result);
     }
+    
+    /* Initialize user-space execution system - Issue #14 */
+    init_user_space_execution();
     
     kernel_print("Memory management initialized\n");
 }
