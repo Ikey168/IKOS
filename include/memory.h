@@ -7,9 +7,9 @@
 #include <stdint.h>
 #include <stddef.h>
 
-/* Basic memory functions */
-void* kmalloc(size_t size);
-void kfree(void* ptr);
+/* Basic memory functions - now redirect to new kalloc system */
+void* kmalloc(size_t size);    /* Legacy wrapper for kalloc() */
+void kfree(void* ptr);         /* Legacy wrapper for kfree() */
 void* memset(void* dest, int value, size_t count);
 void* memcpy(void* dest, const void* src, size_t count);
 int memcmp(const void* ptr1, const void* ptr2, size_t count);

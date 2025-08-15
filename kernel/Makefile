@@ -25,7 +25,7 @@ BOOTDIR = ../boot
 BUILDDIR = build
 
 # Source files
-C_SOURCES = scheduler.c interrupts.c scheduler_test.c ipc.c ipc_syscalls.c ipc_test.c
+C_SOURCES = scheduler.c interrupts.c scheduler_test.c ipc.c ipc_syscalls.c ipc_test.c kalloc.c kalloc_test.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 
