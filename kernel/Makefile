@@ -26,7 +26,7 @@ BUILDDIR = build
 
 # Source files
 C_SOURCES = scheduler.c interrupts.c scheduler_test.c ipc.c ipc_syscalls.c ipc_test.c kalloc.c kalloc_test.c user_space_test.c \
-            device_manager.c pci.c ide_driver.c device_driver_test.c kernel_main.c
+            device_manager.c pci.c ide_driver.c device_driver_test.c framebuffer.c framebuffer_syscalls.c framebuffer_test.c kernel_main.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 
@@ -36,9 +36,9 @@ ASM_OBJECTS = $(patsubst %.asm,$(BUILDDIR)/%.o,$(ASM_SOURCES))
 BOOT_OBJECTS = $(patsubst $(BOOTDIR)/%.asm,$(BUILDDIR)/%.o,$(BOOT_SOURCES))
 
 # Targets
-.PHONY: all clean test scheduler bootloader kernel ipc device-drivers
+.PHONY: all clean test scheduler bootloader kernel ipc device-drivers framebuffer
 
-all: $(BUILDDIR) bootloader scheduler ipc device-drivers kernel
+all: $(BUILDDIR) bootloader scheduler ipc device-drivers framebuffer kernel
 
 # Create build directory
 $(BUILDDIR):
@@ -61,6 +61,9 @@ ipc: $(C_OBJECTS) $(ASM_OBJECTS)
 
 # Device Driver Framework components (Issue #15)
 device-drivers: $(C_OBJECTS) $(ASM_OBJECTS)
+
+# Framebuffer Driver components (Issue #26)
+framebuffer: $(C_OBJECTS) $(ASM_OBJECTS)
 
 # Compile C sources
 $(BUILDDIR)/%.o: %.c
@@ -94,6 +97,11 @@ test-device-drivers: device-drivers
 	@echo "Building Device Driver Framework test..."
 	@echo "Device Driver Framework components built successfully"
 	@echo "Testing device manager, PCI bus driver, and IDE controller"
+
+test-framebuffer: framebuffer
+	@echo "Building Framebuffer Driver test..."
+	@echo "Framebuffer Driver components built successfully"
+	@echo "Testing display modes, drawing functions, and user-space API"
 
 test-qemu: $(BUILDDIR)/boot_longmode.bin
 	@echo "Testing bootloader with scheduler in QEMU..."

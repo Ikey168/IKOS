@@ -10,6 +10,8 @@
 #include "../include/pci.h"
 #include "../include/ide_driver.h"
 #include "../include/device_driver_test.h"
+#include "../include/framebuffer.h"
+#include "../include/framebuffer_test.h"
 #include <stdint.h>
 
 /* Kernel entry point called from bootloader */
@@ -50,6 +52,14 @@ void kernel_init(void) {
     kernel_print("Running Device Driver Framework tests...\n");
     test_device_driver_framework();
     
+    /* Initialize Framebuffer Driver (Issue #26) */
+    kernel_print("Initializing Framebuffer Driver...\n");
+    fb_init();
+    
+    /* Run Framebuffer Driver tests */
+    kernel_print("Running Framebuffer Driver tests...\n");
+    test_framebuffer_driver();
+    
     /* TODO: Initialize other subsystems */
     /* scheduler_init(); */
     /* process_init(); */
@@ -89,6 +99,9 @@ void kernel_loop(void) {
                     case 'd':
                         show_device_info();
                         break;
+                    case 'f':
+                        show_framebuffer_info();
+                        break;
                     case 'r':
                         kernel_print("Rebooting system...\n");
                         reboot_system();
@@ -118,6 +131,7 @@ void show_help(void) {
     kernel_print("s - Show interrupt statistics\n");
     kernel_print("t - Show timer information\n");
     kernel_print("d - Show device driver framework info\n");
+    kernel_print("f - Show framebuffer driver info\n");
     kernel_print("r - Reboot system\n");
     kernel_print("\n");
 }
@@ -202,6 +216,40 @@ void show_device_info(void) {
     kernel_print("Drives Found: %u\n", ide_stats.drives_found);
     kernel_print("Total Reads: %u\n", ide_stats.total_reads);
     kernel_print("Total Writes: %u\n", ide_stats.total_writes);
+    
+    kernel_print("\n");
+}
+
+/**
+ * Show framebuffer driver information
+ */
+void show_framebuffer_info(void) {
+    fb_info_t* info = fb_get_info();
+    
+    kernel_print("\nFramebuffer Driver Status:\n");
+    if (info && info->initialized) {
+        kernel_print("Status: Initialized\n");
+        kernel_print("Mode: %d\n", (int)info->mode);
+        kernel_print("Resolution: %ux%u\n", info->width, info->height);
+        kernel_print("Bits per pixel: %u\n", info->bpp);
+        kernel_print("Pitch: %u bytes\n", info->pitch);
+        kernel_print("Buffer size: %u bytes\n", info->size);
+        kernel_print("Buffer address: 0x%p\n", info->buffer);
+        kernel_print("Double buffered: %s\n", info->double_buffered ? "Yes" : "No");
+        kernel_print("Color format: %d\n", (int)info->format);
+    } else {
+        kernel_print("Status: Not initialized\n");
+    }
+    
+    fb_stats_t stats;
+    fb_get_stats(&stats);
+    
+    kernel_print("\nFramebuffer Statistics:\n");
+    kernel_print("Pixels drawn: %lu\n", stats.pixels_drawn);
+    kernel_print("Lines drawn: %lu\n", stats.lines_drawn);
+    kernel_print("Rectangles drawn: %lu\n", stats.rects_drawn);
+    kernel_print("Characters drawn: %lu\n", stats.chars_drawn);
+    kernel_print("Buffer swaps: %lu\n", stats.buffer_swaps);
     
     kernel_print("\n");
 }
