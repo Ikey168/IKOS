@@ -4,6 +4,7 @@
 
 #include "idt.h"
 #include "interrupts.h"
+#include "../include/kalloc.h"
 #include <stdint.h>
 
 /* Kernel entry point called from bootloader */
@@ -156,7 +157,26 @@ void reboot_system(void) {
  * Simple memory initialization placeholder
  */
 void memory_init(void) {
-    /* TODO: Initialize memory management system */
+    /* Initialize the new kalloc memory management system */
+    extern uint8_t _kernel_end;  /* Linker symbol for end of kernel */
+    
+    /* Start heap after kernel + some safety margin */
+    void* heap_start = (void*)0x400000; /* 4MB - after kernel space */
+    size_t heap_size = 0x800000;        /* 8MB heap size */
+    
+    int result = kalloc_init(heap_start, heap_size);
+    if (result == KALLOC_SUCCESS) {
+        kernel_print("KALLOC: Memory allocator initialized with %d MB heap\n", 
+                    heap_size / (1024 * 1024));
+        
+        /* Run allocator tests */
+        kalloc_run_tests();
+        
+        kernel_print("KALLOC: All tests completed successfully\n");
+    } else {
+        kernel_print("KALLOC: Failed to initialize memory allocator (error %d)\n", result);
+    }
+    
     kernel_print("Memory management initialized\n");
 }
 

@@ -1,31 +1,51 @@
 /* IKOS Basic C Library Implementation
  * Minimal C library functions for kernel use
+ * Updated to use new kalloc system for memory allocation
  */
 
 #include "memory.h"
+#include "../include/kalloc.h"
 #include <stdint.h>
 #include <stddef.h>
 
-/* Simple heap allocator - very basic implementation */
-static uint8_t heap[1024 * 1024]; // 1MB heap
-static size_t heap_pos = 0;
+/* Legacy allocator state - now unused but kept for reference */
+static uint8_t old_heap[1024 * 1024]; // 1MB heap (deprecated)
+static size_t old_heap_pos = 0;       // deprecated
 
+/* Legacy memory allocation wrappers - redirect to new kalloc system */
 void* kmalloc(size_t size) {
-    if (heap_pos + size >= sizeof(heap)) {
+    /* Use new kalloc system if available */
+    extern void* kalloc(size_t size);
+    void* ptr = kalloc(size);
+    if (ptr) {
+        return ptr;
+    }
+    
+    /* Fallback to old allocator if kalloc not initialized */
+    if (old_heap_pos + size >= sizeof(old_heap)) {
         return NULL; // Out of memory
     }
     
-    void* ptr = &heap[heap_pos];
-    heap_pos += size;
+    ptr = &old_heap[old_heap_pos];
+    old_heap_pos += size;
     
     /* Align to 8-byte boundary */
-    heap_pos = (heap_pos + 7) & ~7;
+    old_heap_pos = (old_heap_pos + 7) & ~7;
     
     return ptr;
 }
 
 void kfree(void* ptr) {
-    /* Simple allocator doesn't support free */
+    /* Try new kalloc system first */
+    extern bool kalloc_is_valid_pointer(void* ptr);
+    extern void kalloc_kfree(void* ptr);  /* Use wrapper to avoid conflict */
+    
+    if (kalloc_is_valid_pointer && kalloc_is_valid_pointer(ptr)) {
+        kalloc_kfree(ptr);
+        return;
+    }
+    
+    /* Old simple allocator doesn't support free - just ignore */
     (void)ptr;
 }
 
