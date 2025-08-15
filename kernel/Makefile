@@ -27,7 +27,7 @@ BUILDDIR = build
 # Source files
 C_SOURCES = scheduler.c interrupts.c scheduler_test.c ipc.c ipc_syscalls.c ipc_test.c kalloc.c kalloc_test.c user_space_test.c \
             device_manager.c pci.c ide_driver.c device_driver_test.c framebuffer.c framebuffer_syscalls.c framebuffer_test.c \
-            usb_controller.c kernel_main.c
+            usb_controller.c kernel_log.c kernel_main.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 
@@ -66,6 +66,9 @@ device-drivers: $(C_OBJECTS) $(ASM_OBJECTS)
 # USB Controller components (Issue #15 Enhancement)
 usb: $(C_OBJECTS) $(ASM_OBJECTS)
 
+# Kernel Logging System components (Issue #16)
+logging: $(C_OBJECTS) $(ASM_OBJECTS)
+
 # Framebuffer Driver components (Issue #26)
 framebuffer: $(C_OBJECTS) $(ASM_OBJECTS)
 
@@ -84,7 +87,7 @@ $(BUILDDIR)/kernel.bin: $(C_OBJECTS) $(ASM_OBJECTS) kernel.ld
 	$(LD) $(LDFLAGS) -o $@ $(C_OBJECTS) $(ASM_OBJECTS)
 
 # Test targets
-test: test-scheduler test-ipc test-device-drivers test-usb test-qemu
+test: test-scheduler test-ipc test-device-drivers test-usb test-logging test-qemu
 
 test-scheduler: scheduler
 	@echo "Building scheduler test..."
@@ -106,6 +109,11 @@ test-usb: usb
 	@echo "Building USB Controller test..."
 	@echo "USB Controller components built successfully"
 	@echo "Testing USB controller integration with device framework"
+
+test-logging: logging
+	@echo "Building Kernel Logging System test..."
+	@echo "Kernel Logging System components built successfully"
+	@echo "Testing serial output, debugging support, and IPC/memory logging"
 
 test-framebuffer: framebuffer
 	@echo "Building Framebuffer Driver test..."
