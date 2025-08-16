@@ -183,7 +183,7 @@ void process_terminate(process_t* proc);
 
 /* External variables */
 extern process_t* current_process;
-extern process_t processes[MAX_PROCESSES];
+/* Note: processes array is defined as static in process.c */
 
 /* Assembly routine declarations (implemented in user_mode.asm) */
 extern void switch_to_user_mode_asm(process_context_t* context);
