@@ -15,6 +15,35 @@
 #define ELF_DATA_MSB        2               /* Big endian */
 #define ELF_VERSION_CURRENT 1               /* Current ELF version */
 
+/* Standard ELF constants */
+#define EI_MAG0             0               /* File identification byte 0 index */
+#define EI_MAG1             1               /* File identification byte 1 index */
+#define EI_MAG2             2               /* File identification byte 2 index */
+#define EI_MAG3             3               /* File identification byte 3 index */
+#define EI_CLASS            4               /* File class byte index */
+#define EI_DATA             5               /* Data encoding byte index */
+#define EI_VERSION          6               /* File version byte index */
+
+#define ELFMAG0             0x7f            /* Magic number byte 0 */
+#define ELFMAG1             'E'             /* Magic number byte 1 */
+#define ELFMAG2             'L'             /* Magic number byte 2 */
+#define ELFMAG3             'F'             /* Magic number byte 3 */
+
+#define ELFCLASS32          1               /* 32-bit objects */
+#define ELFCLASS64          2               /* 64-bit objects */
+#define ELFDATA2LSB         1               /* 2's complement little endian */
+#define ELFDATA2MSB         2               /* 2's complement big endian */
+
+#define ET_NONE             0               /* No file type */
+#define ET_REL              1               /* Relocatable file */
+#define ET_EXEC             2               /* Executable file */
+#define ET_DYN              3               /* Shared object file */
+#define ET_CORE             4               /* Core file */
+
+#define EM_NONE             0               /* No machine */
+#define EM_386              3               /* Intel 80386 */
+#define EM_X86_64           62              /* AMD x86-64 architecture */
+
 /* ELF File Types */
 #define ELF_TYPE_NONE       0               /* No file type */
 #define ELF_TYPE_REL        1               /* Relocatable file */

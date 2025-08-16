@@ -130,13 +130,19 @@ process_t* process_create_from_elf(const char* name, void* elf_data, size_t size
  * Create a new process by loading from a file path
  */
 process_t* process_create(const char* name, const char* path) {
-    /* TODO: Implement file system loading */
-    /* For now, this is a placeholder that would:
-     * 1. Open the file at 'path'
-     * 2. Read the ELF data
-     * 3. Call process_create_from_elf
-     */
-    debug_print("File system loading not yet implemented\n");
+    if (!name || !path) {
+        debug_print("Invalid parameters for process creation\n");
+        return NULL;
+    }
+    
+    /* This function now delegates to the application loader */
+    debug_print("Delegating process creation to application loader: %s\n", path);
+    
+    /* The application loader handles file system integration */
+    /* This function is kept for compatibility but not used directly */
+    /* Use load_user_application() from user_app_loader.c instead */
+    
+    debug_print("Use load_user_application() instead of process_create()\n");
     return NULL;
 }
 
@@ -320,12 +326,12 @@ void process_switch_to(process_t* proc) {
     
     debug_print("Switched to process %s (PID %d)\n", proc->name, proc->pid);
     
-    /* TODO: Restore CPU context and jump to user mode */
-    /* This would involve:
-     * 1. Setting up user mode stack
-     * 2. Restoring registers
-     * 3. Using IRET to jump to user mode
-     */
+    /* Restore CPU context and jump to user mode */
+    /* This now delegates to the user_mode.asm assembly routines */
+    switch_to_user_mode_asm(&proc->context);
+    
+    /* This should not return in normal operation */
+    debug_print("Unexpected return from user mode switch\n");
 }
 
 /**

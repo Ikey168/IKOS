@@ -27,7 +27,7 @@ BUILDDIR = build
 # Source files
 C_SOURCES = scheduler.c interrupts.c scheduler_test.c ipc.c ipc_syscalls.c ipc_test.c kalloc.c kalloc_test.c user_space_test.c \
             device_manager.c pci.c ide_driver.c device_driver_test.c framebuffer.c framebuffer_syscalls.c framebuffer_test.c \
-            usb_controller.c kernel_log.c kernel_main.c
+            usb_controller.c kernel_log.c kernel_main.c user_app_loader.c process.c elf_loader.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 

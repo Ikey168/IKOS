@@ -97,6 +97,8 @@ typedef struct process {
     uint64_t heap_end;                  /* End of heap */
     uint64_t stack_start;               /* Start of stack */
     uint64_t stack_end;                 /* End of stack */
+    uint64_t entry_point;               /* Process entry point address */
+    uint64_t stack_size;                /* Size of the stack */
     
     /* Context */
     process_context_t context;          /* Saved CPU context */
@@ -173,5 +175,17 @@ void process_get_stats(process_stats_t* stats);
 /* Process debugging */
 void process_dump_info(process_t* proc);
 void process_dump_all(void);
+
+/* Process lookup and management functions */
+process_t* process_find_by_pid(uint32_t pid);
+process_t* process_get_by_pid(uint32_t pid);  /* Alias for compatibility */
+void process_terminate(process_t* proc);
+
+/* External variables */
+extern process_t* current_process;
+/* Note: processes array is defined as static in process.c */
+
+/* Assembly routine declarations (implemented in user_mode.asm) */
+extern void switch_to_user_mode_asm(process_context_t* context);
 
 #endif /* PROCESS_H */
