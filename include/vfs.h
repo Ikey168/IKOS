@@ -55,6 +55,15 @@ typedef enum {
 #define VFS_S_IWOTH     0x0002      /* Write permission for others */
 #define VFS_S_IXOTH     0x0001      /* Execute permission for others */
 
+/* Permission aliases for our application loader */
+#define VFS_PERM_READ   (VFS_S_IRUSR | VFS_S_IRGRP | VFS_S_IROTH)
+#define VFS_PERM_WRITE  (VFS_S_IWUSR | VFS_S_IWGRP | VFS_S_IWOTH) 
+#define VFS_PERM_EXEC   (VFS_S_IXUSR | VFS_S_IXGRP | VFS_S_IXOTH)
+
+/* File handle types */
+typedef int file_handle_t;
+#define VFS_INVALID_HANDLE  -1
+
 /* Seek constants */
 #define VFS_SEEK_SET    0           /* Seek from beginning */
 #define VFS_SEEK_CUR    1           /* Seek from current position */
@@ -90,10 +99,12 @@ typedef struct vfs_stat {
     uint64_t st_ino;                /* Inode number */
     vfs_file_type_t st_mode;        /* File type */
     uint32_t st_perm;               /* File permissions */
+    uint32_t permissions;           /* Alias for st_perm for compatibility */
     uint32_t st_nlink;              /* Number of hard links */
     uint32_t st_uid;                /* User ID */
     uint32_t st_gid;                /* Group ID */
     uint64_t st_size;               /* File size in bytes */
+    uint64_t size;                  /* Alias for st_size for compatibility */
     uint64_t st_blocks;             /* Number of blocks allocated */
     uint32_t st_blksize;            /* Block size */
     uint64_t st_atime;              /* Last access time */

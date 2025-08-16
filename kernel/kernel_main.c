@@ -12,6 +12,8 @@
 #include "../include/device_driver_test.h"
 #include "../include/framebuffer.h"
 #include "../include/framebuffer_test.h"
+#include "../include/process.h"
+#include "../include/user_app_loader.h"
 #include <stdint.h>
 
 /* Kernel entry point called from bootloader */
@@ -62,10 +64,24 @@ void kernel_init(void) {
     
     /* TODO: Initialize other subsystems */
     /* scheduler_init(); */
-    /* process_init(); */
+    
+    /* Initialize process management and user-space execution - Issue #17 */
+    kernel_print("Initializing process management and user-space execution...\n");
+    process_init();
+    app_loader_init();
+    
     /* vfs_init(); */
     
     kernel_print("IKOS kernel initialized successfully\n");
+    
+    /* Start init process - Issue #17 */
+    kernel_print("Starting init process...\n");
+    int32_t init_pid = start_init_process();
+    if (init_pid > 0) {
+        kernel_print("Init process started successfully (PID %d)\n", init_pid);
+    } else {
+        kernel_print("Failed to start init process (error %d)\n", init_pid);
+    }
 }
 
 /**
