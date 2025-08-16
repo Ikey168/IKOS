@@ -28,7 +28,8 @@ BUILDDIR = build
 C_SOURCES = scheduler.c interrupts.c scheduler_test.c ipc.c ipc_syscalls.c ipc_test.c kalloc.c kalloc_test.c user_space_test.c \
             device_manager.c pci.c ide_driver.c device_driver_test.c framebuffer.c framebuffer_syscalls.c framebuffer_test.c \
             usb_controller.c kernel_log.c kernel_main.c user_app_loader.c process.c elf_loader.c \
-            process_exit.c process_helpers.c process_termination_test.c
+            process_exit.c process_helpers.c process_termination_test.c \
+            signal_delivery.c signal_mask.c signal_syscalls.c signal_handlers.c signal_test.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 
@@ -38,9 +39,9 @@ ASM_OBJECTS = $(patsubst %.asm,$(BUILDDIR)/%.o,$(ASM_SOURCES))
 BOOT_OBJECTS = $(patsubst $(BOOTDIR)/%.asm,$(BUILDDIR)/%.o,$(BOOT_SOURCES))
 
 # Targets
-.PHONY: all clean test scheduler bootloader kernel ipc device-drivers framebuffer process-termination
+.PHONY: all clean test scheduler bootloader kernel ipc device-drivers framebuffer process-termination signal-handling
 
-all: $(BUILDDIR) bootloader scheduler ipc device-drivers framebuffer process-termination kernel
+all: $(BUILDDIR) bootloader scheduler ipc device-drivers framebuffer process-termination signal-handling kernel
 
 # Create build directory
 $(BUILDDIR):
@@ -76,6 +77,9 @@ framebuffer: $(C_OBJECTS) $(ASM_OBJECTS)
 # Process Termination System components (Issue #18)
 process-termination: $(C_OBJECTS) $(ASM_OBJECTS)
 
+# Advanced Signal Handling System components (Issue #19)
+signal-handling: $(C_OBJECTS) $(ASM_OBJECTS)
+
 # Compile C sources
 $(BUILDDIR)/%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -91,7 +95,7 @@ $(BUILDDIR)/kernel.bin: $(C_OBJECTS) $(ASM_OBJECTS) kernel.ld
 	$(LD) $(LDFLAGS) -o $@ $(C_OBJECTS) $(ASM_OBJECTS)
 
 # Test targets
-test: test-scheduler test-ipc test-device-drivers test-usb test-logging test-process-termination test-qemu
+test: test-scheduler test-ipc test-device-drivers test-usb test-logging test-process-termination test-signal-handling test-qemu
 
 test-scheduler: scheduler
 	@echo "Building scheduler test..."
@@ -128,6 +132,11 @@ test-process-termination: process-termination
 	@echo "Building Process Termination System test..."
 	@echo "Process Termination System components built successfully"
 	@echo "Testing process exit, resource cleanup, wait system calls, and zombie reaping"
+
+test-signal-handling: signal-handling
+	@echo "Building Advanced Signal Handling System test..."
+	@echo "Advanced Signal Handling System components built successfully"
+	@echo "Testing signal delivery, masking, handlers, RT signals, and POSIX compatibility"
 
 test-qemu: $(BUILDDIR)/boot_longmode.bin
 	@echo "Testing bootloader with scheduler in QEMU..."
