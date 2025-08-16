@@ -1,9 +1,10 @@
 /* IKOS System Call Implementation
- * Handles system calls from user-space processes
+ * Handles system calls from user-space processes including process lifecycle
  */
 
 #include "process.h"
 #include "interrupts.h"
+#include "syscall_process.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -21,6 +22,7 @@ int syscall_init(void);
 #define SYS_GETPID      39
 #define SYS_GETPPID     110
 #define SYS_WAIT        61
+#define SYS_WAITPID     247
 
 /* Forward declarations */
 static long sys_exit_impl(int status);
@@ -80,21 +82,36 @@ long handle_system_call(interrupt_frame_t* frame) {
             break;
             
         case SYS_FORK:
-            /* TODO: Implement fork */
-            debug_print("Fork system call not yet implemented\n");
-            result = -1;
+            /* Implement fork system call */
+            result = sys_fork();
             break;
             
         case SYS_EXECVE:
-            /* TODO: Implement execve */
-            debug_print("Execve system call not yet implemented\n");
-            result = -1;
+            /* Implement execve system call */
+            {
+                char* path = (char*)frame->rdi;
+                char** argv = (char**)frame->rsi;
+                char** envp = (char**)frame->rdx;
+                result = sys_execve(path, argv, envp);
+            }
             break;
             
         case SYS_WAIT:
-            /* TODO: Implement wait */
-            debug_print("Wait system call not yet implemented\n");
-            result = -1;
+            /* Implement wait system call */
+            {
+                int* status = (int*)frame->rdi;
+                result = sys_wait(status);
+            }
+            break;
+            
+        case SYS_WAITPID:
+            /* Implement waitpid system call */
+            {
+                pid_t pid = (pid_t)frame->rdi;
+                int* status = (int*)frame->rsi;
+                int options = (int)frame->rdx;
+                result = sys_waitpid(pid, status, options);
+            }
             break;
             
         default:

@@ -25,11 +25,12 @@ BOOTDIR = ../boot
 BUILDDIR = build
 
 # Source files
-C_SOURCES = scheduler.c interrupts.c scheduler_test.c ipc.c ipc_syscalls.c ipc_test.c kalloc.c kalloc_test.c user_space_test.c \
+C_SOURCES = scheduler.c interrupts.c scheduler_test.c kalloc.c kalloc_test.c user_space_test.c \
             device_manager.c pci.c ide_driver.c device_driver_test.c framebuffer.c framebuffer_syscalls.c framebuffer_test.c \
             usb_controller.c kernel_log.c kernel_main.c user_app_loader.c process.c elf_loader.c \
             process_exit.c process_helpers.c process_termination_test.c \
-            signal_delivery.c signal_mask.c signal_syscalls.c signal_handlers.c signal_test.c
+            signal_delivery.c signal_mask.c signal_syscalls.c signal_handlers.c signal_test.c \
+            syscall_fork.c syscall_execve.c syscall_wait.c process_lifecycle_test.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 
@@ -39,9 +40,9 @@ ASM_OBJECTS = $(patsubst %.asm,$(BUILDDIR)/%.o,$(ASM_SOURCES))
 BOOT_OBJECTS = $(patsubst $(BOOTDIR)/%.asm,$(BUILDDIR)/%.o,$(BOOT_SOURCES))
 
 # Targets
-.PHONY: all clean test scheduler bootloader kernel ipc device-drivers framebuffer process-termination signal-handling
+.PHONY: all clean test scheduler bootloader kernel ipc device-drivers framebuffer process-termination signal-handling process-lifecycle
 
-all: $(BUILDDIR) bootloader scheduler ipc device-drivers framebuffer process-termination signal-handling kernel
+all: $(BUILDDIR) bootloader scheduler ipc device-drivers framebuffer process-termination signal-handling process-lifecycle kernel
 
 # Create build directory
 $(BUILDDIR):
@@ -80,6 +81,9 @@ process-termination: $(C_OBJECTS) $(ASM_OBJECTS)
 # Advanced Signal Handling System components (Issue #19)
 signal-handling: $(C_OBJECTS) $(ASM_OBJECTS)
 
+# Process Lifecycle Management components (Issue #24)
+process-lifecycle: $(C_OBJECTS) $(ASM_OBJECTS)
+
 # Compile C sources
 $(BUILDDIR)/%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -95,7 +99,7 @@ $(BUILDDIR)/kernel.bin: $(C_OBJECTS) $(ASM_OBJECTS) kernel.ld
 	$(LD) $(LDFLAGS) -o $@ $(C_OBJECTS) $(ASM_OBJECTS)
 
 # Test targets
-test: test-scheduler test-ipc test-device-drivers test-usb test-logging test-process-termination test-signal-handling test-qemu
+test: test-scheduler test-ipc test-device-drivers test-usb test-logging test-process-termination test-signal-handling test-process-lifecycle test-qemu
 
 test-scheduler: scheduler
 	@echo "Building scheduler test..."
@@ -137,6 +141,11 @@ test-signal-handling: signal-handling
 	@echo "Building Advanced Signal Handling System test..."
 	@echo "Advanced Signal Handling System components built successfully"
 	@echo "Testing signal delivery, masking, handlers, RT signals, and POSIX compatibility"
+
+test-process-lifecycle: process-lifecycle
+	@echo "Building Process Lifecycle Management test..."
+	@echo "Process Lifecycle Management components built successfully"
+	@echo "Testing fork(), execve(), wait() system calls, COW memory, and process tree management"
 
 test-qemu: $(BUILDDIR)/boot_longmode.bin
 	@echo "Testing bootloader with scheduler in QEMU..."
