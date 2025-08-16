@@ -144,6 +144,7 @@ typedef struct process {
     uint64_t signal_mask;               /* Bitmask of blocked signals */
     void* signal_handlers[32];          /* Signal handler functions */
     uint64_t alarm_time;                /* Alarm timer (0 if none) */
+    void* signal_delivery_state;        /* Signal delivery state (signal_delivery_state_t*) */
     
     /* Parent-child relationships */
     struct process* zombie_children;    /* List of zombie children */
