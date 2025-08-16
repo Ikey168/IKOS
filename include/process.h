@@ -11,6 +11,20 @@
 #include "vmm.h"
 #include "interrupts.h"
 
+/* Forward declaration to avoid circular includes */
+typedef struct process process_t;
+
+/* Type definitions */
+#ifndef _PID_T_DEFINED
+typedef int pid_t;
+#define _PID_T_DEFINED
+#endif
+
+#ifndef _OFF_T_DEFINED
+typedef long long off_t;
+#define _OFF_T_DEFINED
+#endif
+
 /* Define ssize_t if not available */
 #ifndef _SSIZE_T_DEFINED
 typedef long long ssize_t;
@@ -19,9 +33,13 @@ typedef long long ssize_t;
 
 /* Process states */
 typedef enum {
+    PROCESS_STATE_NEW,          /* Process being created */
     PROCESS_STATE_READY,        /* Ready to run */
     PROCESS_STATE_RUNNING,      /* Currently running */
     PROCESS_STATE_BLOCKED,      /* Waiting for I/O or event */
+    PROCESS_STATE_STOPPING,     /* Being stopped by signal */
+    PROCESS_STATE_STOPPED,      /* Stopped by signal */
+    PROCESS_STATE_TERMINATING,  /* In process of terminating */
     PROCESS_STATE_ZOMBIE,       /* Terminated but not cleaned up */
     PROCESS_STATE_TERMINATED    /* Fully terminated */
 } process_state_t;
@@ -78,8 +96,8 @@ typedef struct {
 /* Process Control Block (PCB) */
 typedef struct process {
     /* Process identification */
-    uint32_t pid;                       /* Process ID */
-    uint32_t ppid;                      /* Parent process ID */
+    pid_t pid;                          /* Process ID */
+    pid_t ppid;                         /* Parent process ID */
     char name[MAX_PROCESS_NAME];        /* Process name */
     char cmdline[MAX_COMMAND_LINE];     /* Command line */
     
@@ -118,6 +136,31 @@ typedef struct process {
     
     /* Exit information */
     int exit_code;                      /* Exit code when terminated */
+    uint64_t exit_time;                 /* Time when process exited */
+    int killed_by_signal;               /* Signal that killed process (0 if normal exit) */
+    
+    /* Signal handling */
+    uint64_t pending_signals;           /* Bitmask of pending signals */
+    uint64_t signal_mask;               /* Bitmask of blocked signals */
+    void* signal_handlers[32];          /* Signal handler functions */
+    uint64_t alarm_time;                /* Alarm timer (0 if none) */
+    
+    /* Parent-child relationships */
+    struct process* zombie_children;    /* List of zombie children */
+    struct process* next_zombie;        /* Next in zombie list */
+    
+    /* Wait queue support */
+    struct process* waiting_for_child;  /* Process waiting for this child */
+    int* wait_status_ptr;               /* Where to store exit status */
+    
+    /* Resource tracking */
+    uint32_t open_files_count;          /* Number of open files */
+    uint32_t allocated_pages;           /* Number of allocated memory pages */
+    uint64_t cpu_time_used;             /* Total CPU time used */
+    
+    /* Process arguments */
+    char** argv;                        /* Command line arguments */
+    char** envp;                        /* Environment variables */
 } process_t;
 
 /* Process management functions */
@@ -125,10 +168,20 @@ int process_init(void);
 process_t* process_create(const char* name, const char* path);
 process_t* process_create_from_elf(const char* name, void* elf_data, size_t size);
 int process_exec(process_t* proc, const char* path, char* const argv[]);
+
+/* Process termination functions (Issue #18) */
 void process_exit(process_t* proc, int exit_code);
 void process_kill(process_t* proc, int signal);
-process_t* process_get_by_pid(uint32_t pid);
+void process_force_kill(process_t* proc);
+void process_terminate(process_t* proc);
+int process_reap_zombie(process_t* zombie);
+
+/* Process lookup functions */
+process_t* process_get_by_pid(pid_t pid);
 process_t* process_get_current(void);
+process_t* process_find_by_pid(pid_t pid);
+process_t* process_find_zombie_child(process_t* parent);
+process_t* process_find_child_by_pid(process_t* parent, pid_t pid);
 
 /* Memory management for processes */
 int process_setup_memory(process_t* proc);
@@ -157,17 +210,22 @@ process_t* process_get_next_ready(void);
 int sys_fork(void);
 int sys_exec(const char* path, char* const argv[]);
 void sys_exit(int status);
-int sys_wait(int* status);
+long sys_wait(int* status);
+long sys_waitpid(int pid, int* status, int options);
 int sys_getpid(void);
 int sys_getppid(void);
+int sys_kill(int pid, int signal);
 
 /* Process statistics */
 typedef struct {
-    uint32_t total_processes;           /* Total processes created */
-    uint32_t active_processes;          /* Currently active processes */
-    uint32_t zombie_processes;          /* Zombie processes */
+    pid_t total_processes;              /* Total processes created */
+    pid_t active_processes;             /* Currently active processes */
+    pid_t zombie_processes;             /* Zombie processes */
+    pid_t terminated_processes;         /* Total terminated processes */
+    pid_t killed_processes;             /* Processes killed by signals */
     uint64_t context_switches;          /* Total context switches */
     uint64_t page_faults;               /* Total page faults */
+    uint64_t resources_cleaned;         /* Total resources cleaned up */
 } process_stats_t;
 
 void process_get_stats(process_stats_t* stats);
@@ -177,8 +235,8 @@ void process_dump_info(process_t* proc);
 void process_dump_all(void);
 
 /* Process lookup and management functions */
-process_t* process_find_by_pid(uint32_t pid);
-process_t* process_get_by_pid(uint32_t pid);  /* Alias for compatibility */
+process_t* process_find_by_pid(pid_t pid);
+process_t* process_get_by_pid(pid_t pid);  /* Alias for compatibility */
 void process_terminate(process_t* proc);
 
 /* External variables */

@@ -19,6 +19,8 @@
 #define SYS_GETPID      39
 #define SYS_GETPPID     110
 #define SYS_WAIT        61
+#define SYS_WAITPID     247
+#define SYS_KILL        62
 
 /* Keyboard syscalls */
 #define SYS_KEYBOARD_READ     140
@@ -32,7 +34,7 @@
 
 /* Process manager syscalls */
 #define SYS_PS            300
-#define SYS_KILL          301
+/* Note: SYS_KILL is now defined above as 62 for POSIX compatibility */
 
 /* VFS syscalls */
 #define SYS_VFS_MOUNT     400
