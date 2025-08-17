@@ -74,6 +74,13 @@ MEMORY_ADVANCED_OBJECTS = $(BUILD_DIR)/buddy_allocator.o $(BUILD_DIR)/slab_alloc
                           $(BUILD_DIR)/demand_paging.o $(BUILD_DIR)/memory_compression.o \
                           $(BUILD_DIR)/numa_allocator.o $(BUILD_DIR)/advanced_memory_manager.o
 
+# Authentication & Authorization System specific files - Issue #31
+AUTH_SOURCES = $(KERNEL_DIR)/auth_core.c $(KERNEL_DIR)/auth_authorization.c \
+               $(KERNEL_DIR)/auth_mfa.c
+AUTH_OBJECTS = $(BUILD_DIR)/auth_core.o $(BUILD_DIR)/auth_authorization.o \
+               $(BUILD_DIR)/auth_mfa.o
+AUTH_LIBS = -lssl -lcrypto -lpthread
+
 # Files
 BOOT_ASM = $(BOOT_DIR)/boot.asm
 BOOT_ENHANCED_ASM = $(BOOT_DIR)/boot_enhanced.asm
@@ -100,8 +107,8 @@ DISK_ELF_LOADER_IMG = $(BUILD_DIR)/ikos_elf_loader.img
 DISK_ELF_COMPACT_IMG = $(BUILD_DIR)/ikos_elf_compact.img
 DISK_LONGMODE_IMG = $(BUILD_DIR)/ikos_longmode.img
 
-# Default target - build kernel with VMM, interrupt handling, user-space support, process manager, VFS, FAT filesystem, keyboard driver, and advanced memory management
-all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(BUILD_DIR)/interrupt_test $(BUILD_DIR)/userspace_test $(BUILD_DIR)/process_manager_test $(BUILD_DIR)/vfs_test $(BUILD_DIR)/fat_test $(BUILD_DIR)/keyboard_test $(BUILD_DIR)/advanced_memory_test $(DISK_LONGMODE_IMG)
+# Default target - build kernel with VMM, interrupt handling, user-space support, process manager, VFS, FAT filesystem, keyboard driver, advanced memory management, and authentication system
+all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(BUILD_DIR)/interrupt_test $(BUILD_DIR)/userspace_test $(BUILD_DIR)/process_manager_test $(BUILD_DIR)/vfs_test $(BUILD_DIR)/fat_test $(BUILD_DIR)/keyboard_test $(BUILD_DIR)/advanced_memory_test $(BUILD_DIR)/auth_test $(DISK_LONGMODE_IMG)
 
 # Kernel ELF binary
 KERNEL_ELF = $(BUILD_DIR)/kernel.elf
@@ -161,6 +168,10 @@ $(BUILD_DIR)/keyboard_test: $(KEYBOARD_OBJECTS) $(BUILD_DIR)/test_test_keyboard.
 # Build advanced memory management test executable
 $(BUILD_DIR)/advanced_memory_test: $(MEMORY_ADVANCED_OBJECTS) $(BUILD_DIR)/test_advanced_memory.o | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $(MEMORY_ADVANCED_OBJECTS) $(BUILD_DIR)/test_advanced_memory.o -nostdlib -lgcc -no-pie
+
+# Build authentication & authorization system test executable
+$(BUILD_DIR)/auth_test: $(AUTH_OBJECTS) $(BUILD_DIR)/auth_test.o | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $@ $(AUTH_OBJECTS) $(KERNEL_DIR)/auth_test.c $(AUTH_LIBS) -no-pie
 
 # =============================================================================
 # VMM SPECIFIC TARGETS
@@ -313,6 +324,45 @@ test-compression: $(BUILD_DIR)/advanced_memory_test
 
 test-paging: $(BUILD_DIR)/advanced_memory_test
 	$(BUILD_DIR)/advanced_memory_test paging
+
+# =============================================================================
+# AUTHENTICATION & AUTHORIZATION SYSTEM TARGETS - Issue #31
+# =============================================================================
+
+# Build authentication & authorization system only
+auth: $(AUTH_OBJECTS)
+	@echo "Authentication & authorization system components built successfully"
+
+# Run authentication & authorization tests
+test-auth: $(BUILD_DIR)/auth_test
+	$(BUILD_DIR)/auth_test
+
+# Authentication system smoke test
+auth-smoke: $(BUILD_DIR)/auth_test
+	$(BUILD_DIR)/auth_test smoke
+
+# Authentication system security test
+auth-security: $(BUILD_DIR)/auth_test
+	$(BUILD_DIR)/auth_test security
+
+# Test individual authentication components
+test-user-management: $(BUILD_DIR)/auth_test
+	$(BUILD_DIR)/auth_test user
+
+test-sessions: $(BUILD_DIR)/auth_test
+	$(BUILD_DIR)/auth_test sessions
+
+test-roles: $(BUILD_DIR)/auth_test
+	$(BUILD_DIR)/auth_test roles
+
+test-permissions: $(BUILD_DIR)/auth_test
+	$(BUILD_DIR)/auth_test permissions
+
+test-mfa: $(BUILD_DIR)/auth_test
+	$(BUILD_DIR)/auth_test mfa
+
+test-acl: $(BUILD_DIR)/auth_test
+	$(BUILD_DIR)/auth_test acl
 
 # =============================================================================
 # BOOTLOADER BUILD RULES
