@@ -81,6 +81,10 @@ AUTH_OBJECTS = $(BUILD_DIR)/auth_core.o $(BUILD_DIR)/auth_authorization.o \
                $(BUILD_DIR)/auth_mfa.o
 AUTH_LIBS = -lssl -lcrypto -lpthread
 
+# Network Stack specific files - Issue #35
+NETWORK_SOURCES = $(KERNEL_DIR)/net/network_core.c $(KERNEL_DIR)/net/ethernet.c
+NETWORK_OBJECTS = $(BUILD_DIR)/network_core.o $(BUILD_DIR)/ethernet.o
+
 # Files
 BOOT_ASM = $(BOOT_DIR)/boot.asm
 BOOT_ENHANCED_ASM = $(BOOT_DIR)/boot_enhanced.asm
@@ -107,8 +111,8 @@ DISK_ELF_LOADER_IMG = $(BUILD_DIR)/ikos_elf_loader.img
 DISK_ELF_COMPACT_IMG = $(BUILD_DIR)/ikos_elf_compact.img
 DISK_LONGMODE_IMG = $(BUILD_DIR)/ikos_longmode.img
 
-# Default target - build kernel with VMM, interrupt handling, user-space support, process manager, VFS, FAT filesystem, keyboard driver, advanced memory management, and authentication system
-all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(BUILD_DIR)/interrupt_test $(BUILD_DIR)/userspace_test $(BUILD_DIR)/process_manager_test $(BUILD_DIR)/vfs_test $(BUILD_DIR)/fat_test $(BUILD_DIR)/keyboard_test $(BUILD_DIR)/advanced_memory_test $(BUILD_DIR)/auth_test $(DISK_LONGMODE_IMG)
+# Default target - build kernel with VMM, interrupt handling, user-space support, process manager, VFS, FAT filesystem, keyboard driver, advanced memory management, authentication system, and network stack
+all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(BUILD_DIR)/interrupt_test $(BUILD_DIR)/userspace_test $(BUILD_DIR)/process_manager_test $(BUILD_DIR)/vfs_test $(BUILD_DIR)/fat_test $(BUILD_DIR)/keyboard_test $(BUILD_DIR)/advanced_memory_test $(BUILD_DIR)/auth_test $(BUILD_DIR)/network_test $(DISK_LONGMODE_IMG)
 
 # Kernel ELF binary
 KERNEL_ELF = $(BUILD_DIR)/kernel.elf
@@ -132,6 +136,13 @@ $(BUILD_DIR)/%.o: $(KERNEL_DIR)/%.c | $(BUILD_DIR)
 # Compile assembly files
 $(BUILD_DIR)/%.o: $(KERNEL_DIR)/%.asm | $(BUILD_DIR)
 	$(ASM) $(ASMFLAGS) $< -o $@
+
+# Compile network stack files
+$(BUILD_DIR)/network_core.o: $(KERNEL_DIR)/net/network_core.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/ethernet.o: $(KERNEL_DIR)/net/ethernet.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 # Compile test files
 $(BUILD_DIR)/test_%.o: $(TESTS_DIR)/%.c | $(BUILD_DIR)
@@ -172,6 +183,14 @@ $(BUILD_DIR)/advanced_memory_test: $(MEMORY_ADVANCED_OBJECTS) $(BUILD_DIR)/test_
 # Build authentication & authorization system test executable
 $(BUILD_DIR)/auth_test: $(AUTH_OBJECTS) $(BUILD_DIR)/auth_test.o | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $(AUTH_OBJECTS) $(KERNEL_DIR)/auth_test.c $(AUTH_LIBS) -no-pie
+
+# Build network stack test executable
+# Network test (user-space standalone)
+$(BUILD_DIR)/network_test: tests/network_test_standalone.c | $(BUILD_DIR)
+	gcc -o $@ tests/network_test_standalone.c
+
+$(BUILD_DIR)/network_test.o: tests/network_test_standalone.c | $(BUILD_DIR)
+	gcc -c -o $@ tests/network_test_standalone.c
 
 # =============================================================================
 # VMM SPECIFIC TARGETS
@@ -363,6 +382,42 @@ test-mfa: $(BUILD_DIR)/auth_test
 
 test-acl: $(BUILD_DIR)/auth_test
 	$(BUILD_DIR)/auth_test acl
+
+# =============================================================================
+# NETWORK STACK TARGETS - Issue #35
+# =============================================================================
+
+# Build network stack only
+network: $(NETWORK_OBJECTS)
+	@echo "Network stack components built successfully"
+
+# Run network stack tests
+test-network: $(BUILD_DIR)/network_test
+	$(BUILD_DIR)/network_test
+
+# Network stack smoke test
+network-smoke: $(BUILD_DIR)/network_test
+	$(BUILD_DIR)/network_test smoke
+
+# Test network buffer management
+test-network-buffers: $(BUILD_DIR)/network_test
+	$(BUILD_DIR)/network_test buffers
+
+# Test network device operations
+test-network-devices: $(BUILD_DIR)/network_test
+	$(BUILD_DIR)/network_test devices
+
+# Test Ethernet layer
+test-ethernet: $(BUILD_DIR)/network_test
+	$(BUILD_DIR)/network_test ethernet
+
+# Test IP layer
+test-ip: $(BUILD_DIR)/network_test
+	$(BUILD_DIR)/network_test ip
+
+# Test socket API
+test-sockets: $(BUILD_DIR)/network_test
+	$(BUILD_DIR)/network_test sockets
 
 # =============================================================================
 # BOOTLOADER BUILD RULES
