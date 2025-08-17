@@ -66,6 +66,14 @@ KEYBOARD_SOURCES = $(KERNEL_DIR)/keyboard.c $(KERNEL_DIR)/keyboard_syscalls.c \
 KEYBOARD_OBJECTS = $(BUILD_DIR)/keyboard.o $(BUILD_DIR)/keyboard_syscalls.o \
                    $(BUILD_DIR)/keyboard_user_api.o
 
+# Advanced Memory Management specific files - Issue #27
+MEMORY_ADVANCED_SOURCES = $(KERNEL_DIR)/buddy_allocator.c $(KERNEL_DIR)/slab_allocator.c \
+                          $(KERNEL_DIR)/demand_paging.c $(KERNEL_DIR)/memory_compression.c \
+                          $(KERNEL_DIR)/numa_allocator.c $(KERNEL_DIR)/advanced_memory_manager.c
+MEMORY_ADVANCED_OBJECTS = $(BUILD_DIR)/buddy_allocator.o $(BUILD_DIR)/slab_allocator.o \
+                          $(BUILD_DIR)/demand_paging.o $(BUILD_DIR)/memory_compression.o \
+                          $(BUILD_DIR)/numa_allocator.o $(BUILD_DIR)/advanced_memory_manager.o
+
 # Files
 BOOT_ASM = $(BOOT_DIR)/boot.asm
 BOOT_ENHANCED_ASM = $(BOOT_DIR)/boot_enhanced.asm
@@ -92,8 +100,8 @@ DISK_ELF_LOADER_IMG = $(BUILD_DIR)/ikos_elf_loader.img
 DISK_ELF_COMPACT_IMG = $(BUILD_DIR)/ikos_elf_compact.img
 DISK_LONGMODE_IMG = $(BUILD_DIR)/ikos_longmode.img
 
-# Default target - build kernel with VMM, interrupt handling, user-space support, process manager, VFS, FAT filesystem, and keyboard driver
-all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(BUILD_DIR)/interrupt_test $(BUILD_DIR)/userspace_test $(BUILD_DIR)/process_manager_test $(BUILD_DIR)/vfs_test $(BUILD_DIR)/fat_test $(BUILD_DIR)/keyboard_test $(DISK_LONGMODE_IMG)
+# Default target - build kernel with VMM, interrupt handling, user-space support, process manager, VFS, FAT filesystem, keyboard driver, and advanced memory management
+all: $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/vmm_test $(BUILD_DIR)/interrupt_test $(BUILD_DIR)/userspace_test $(BUILD_DIR)/process_manager_test $(BUILD_DIR)/vfs_test $(BUILD_DIR)/fat_test $(BUILD_DIR)/keyboard_test $(BUILD_DIR)/advanced_memory_test $(DISK_LONGMODE_IMG)
 
 # Kernel ELF binary
 KERNEL_ELF = $(BUILD_DIR)/kernel.elf
@@ -149,6 +157,10 @@ $(BUILD_DIR)/fat_test: $(FAT_OBJECTS) $(VFS_OBJECTS) $(BUILD_DIR)/test_fat.o | $
 # Build keyboard driver test executable
 $(BUILD_DIR)/keyboard_test: $(KEYBOARD_OBJECTS) $(BUILD_DIR)/test_test_keyboard.o | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $(KEYBOARD_OBJECTS) $(BUILD_DIR)/test_test_keyboard.o -nostdlib -lgcc -no-pie
+
+# Build advanced memory management test executable
+$(BUILD_DIR)/advanced_memory_test: $(MEMORY_ADVANCED_OBJECTS) $(BUILD_DIR)/test_advanced_memory.o | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $@ $(MEMORY_ADVANCED_OBJECTS) $(BUILD_DIR)/test_advanced_memory.o -nostdlib -lgcc -no-pie
 
 # =============================================================================
 # VMM SPECIFIC TARGETS
@@ -265,6 +277,42 @@ keyboard-smoke: $(BUILD_DIR)/keyboard_test
 # Keyboard hardware test (requires actual keyboard)
 keyboard-hardware: $(BUILD_DIR)/keyboard_test
 	$(BUILD_DIR)/keyboard_test hardware
+
+# =============================================================================
+# ADVANCED MEMORY MANAGEMENT TARGETS - Issue #27
+# =============================================================================
+
+# Build advanced memory management only
+memory-advanced: $(MEMORY_ADVANCED_OBJECTS)
+	@echo "Advanced memory management components built successfully"
+
+# Run advanced memory management tests
+test-memory-advanced: $(BUILD_DIR)/advanced_memory_test
+	$(BUILD_DIR)/advanced_memory_test
+
+# Advanced memory management smoke test
+memory-advanced-smoke: $(BUILD_DIR)/advanced_memory_test
+	$(BUILD_DIR)/advanced_memory_test smoke
+
+# Advanced memory management stress test
+memory-advanced-stress: $(BUILD_DIR)/advanced_memory_test
+	$(BUILD_DIR)/advanced_memory_test stress
+
+# Test individual memory management components
+test-buddy: $(BUILD_DIR)/advanced_memory_test
+	$(BUILD_DIR)/advanced_memory_test buddy
+
+test-slab: $(BUILD_DIR)/advanced_memory_test
+	$(BUILD_DIR)/advanced_memory_test slab
+
+test-numa: $(BUILD_DIR)/advanced_memory_test
+	$(BUILD_DIR)/advanced_memory_test numa
+
+test-compression: $(BUILD_DIR)/advanced_memory_test
+	$(BUILD_DIR)/advanced_memory_test compression
+
+test-paging: $(BUILD_DIR)/advanced_memory_test
+	$(BUILD_DIR)/advanced_memory_test paging
 
 # =============================================================================
 # BOOTLOADER BUILD RULES
