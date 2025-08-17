@@ -51,8 +51,8 @@ $(BUILDDIR):
 # Bootloader targets
 bootloader: $(BUILDDIR)/boot_longmode.bin
 
-$(BUILDDIR)/boot_longmode.bin: $(BOOTDIR)/boot_longmode.asm
-	$(AS) -f bin $< -o $@
+build/boot_longmode.bin: ../boot/boot_compact.asm
+	nasm -f bin ../boot/boot_compact.asm -o build/boot_longmode.bin
 
 $(BUILDDIR)/boot_longmode.o: $(BOOTDIR)/boot_longmode.asm
 	$(AS) $(ASFLAGS) $< -o $@
@@ -83,6 +83,21 @@ signal-handling: $(C_OBJECTS) $(ASM_OBJECTS)
 
 # Process Lifecycle Management components (Issue #24)
 process-lifecycle: $(C_OBJECTS) $(ASM_OBJECTS)
+
+# Advanced Memory Management simple test (Issue #27)
+simple_memory_test: $(BUILDDIR)/simple_memory_test
+
+$(BUILDDIR)/simple_memory_test: $(BUILDDIR)/simple_memory_test.o $(BUILDDIR)/simple_memory_stub.o
+	$(CC) -static -nostdlib -no-pie -o $@ $^
+
+$(BUILDDIR)/simple_memory_stub.o: simple_memory_stub.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILDDIR)/simple_memory_test.o: simple_memory_test.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILDDIR)/simple_memory_impl.o: simple_memory_impl.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 # Compile C sources
 $(BUILDDIR)/%.o: %.c
