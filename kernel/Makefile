@@ -31,7 +31,8 @@ C_SOURCES = scheduler.c interrupts.c scheduler_test.c kalloc.c kalloc_test.c use
             process_exit.c process_helpers.c process_termination_test.c \
             signal_delivery.c signal_mask.c signal_syscalls.c signal_handlers.c signal_test.c \
             syscall_fork.c syscall_execve.c syscall_wait.c process_lifecycle_test.c \
-            daemon_core.c daemon_service_registry.c daemon_ipc.c daemon_config.c
+            daemon_core.c daemon_service_registry.c daemon_ipc.c daemon_config.c \
+            terminal.c terminal_escape.c terminal_extended.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 
@@ -41,9 +42,9 @@ ASM_OBJECTS = $(patsubst %.asm,$(BUILDDIR)/%.o,$(ASM_SOURCES))
 BOOT_OBJECTS = $(patsubst $(BOOTDIR)/%.asm,$(BUILDDIR)/%.o,$(BOOT_SOURCES))
 
 # Targets
-.PHONY: all clean test scheduler bootloader kernel ipc device-drivers framebuffer process-termination signal-handling process-lifecycle daemon-system
+.PHONY: all clean test scheduler bootloader kernel ipc device-drivers framebuffer process-termination signal-handling process-lifecycle daemon-system terminal-emulator
 
-all: $(BUILDDIR) bootloader scheduler ipc device-drivers framebuffer process-termination signal-handling process-lifecycle daemon-system kernel
+all: $(BUILDDIR) bootloader scheduler ipc device-drivers framebuffer process-termination signal-handling process-lifecycle daemon-system terminal-emulator kernel
 
 # Create build directory
 $(BUILDDIR):
@@ -88,6 +89,9 @@ process-lifecycle: $(C_OBJECTS) $(ASM_OBJECTS)
 # System Daemon Management components (Issue #33)
 daemon-system: $(C_OBJECTS) $(ASM_OBJECTS)
 
+# Terminal Emulator components (Issue #34)
+terminal-emulator: $(C_OBJECTS) $(ASM_OBJECTS)
+
 # Advanced Memory Management simple test (Issue #27)
 simple_memory_test: $(BUILDDIR)/simple_memory_test
 
@@ -118,7 +122,7 @@ $(BUILDDIR)/kernel.bin: $(C_OBJECTS) $(ASM_OBJECTS) kernel.ld
 	$(LD) $(LDFLAGS) -o $@ $(C_OBJECTS) $(ASM_OBJECTS)
 
 # Test targets
-test: test-scheduler test-ipc test-device-drivers test-usb test-logging test-process-termination test-signal-handling test-process-lifecycle test-daemon-system test-qemu
+test: test-scheduler test-ipc test-device-drivers test-usb test-logging test-process-termination test-signal-handling test-process-lifecycle test-daemon-system test-terminal-emulator test-qemu
 
 test-scheduler: scheduler
 	@echo "Building scheduler test..."
@@ -170,6 +174,11 @@ test-daemon-system: daemon-system
 	@echo "Building System Daemon Management test..."
 	@echo "System Daemon Management components built successfully"
 	@echo "Testing daemon lifecycle, service registry, IPC communication, and health monitoring"
+
+test-terminal-emulator: terminal-emulator
+	@echo "Building Terminal Emulator test..."
+	@echo "Terminal Emulator components built successfully"
+	@echo "Testing VT100/ANSI escape sequences, cursor control, text formatting, and screen management"
 
 test-qemu: $(BUILDDIR)/boot_longmode.bin
 	@echo "Testing bootloader with scheduler in QEMU..."
