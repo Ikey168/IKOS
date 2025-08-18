@@ -40,6 +40,23 @@
 #define SYS_VFS_MOUNT     400
 #define SYS_VFS_UNMOUNT   401
 
+/* Window Manager syscalls (Issue #39) */
+#define SYS_WM_REGISTER_APP     500
+#define SYS_WM_UNREGISTER_APP   501
+#define SYS_WM_CREATE_WINDOW    502
+#define SYS_WM_DESTROY_WINDOW   503
+#define SYS_WM_SHOW_WINDOW      504
+#define SYS_WM_HIDE_WINDOW      505
+#define SYS_WM_MOVE_WINDOW      506
+#define SYS_WM_RESIZE_WINDOW    507
+#define SYS_WM_FOCUS_WINDOW     508
+#define SYS_WM_GET_FOCUSED_WINDOW 509
+#define SYS_WM_SET_WINDOW_TITLE 510
+#define SYS_WM_BRING_TO_FRONT   511
+#define SYS_WM_SEND_TO_BACK     512
+#define SYS_WM_SET_WINDOW_STATE 513
+#define SYS_WM_GET_STATISTICS   514
+
 /* System call parameter structure */
 typedef struct {
     uint64_t param1;
