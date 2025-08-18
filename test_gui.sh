@@ -12,7 +12,7 @@ echo "======================================"
 
 # Build the GUI system
 echo "Building GUI system..."
-cd /workspaces/IKOS
+cd /workspaces/IKOS/kernel
 make gui-system
 
 if [ $? -eq 0 ]; then
@@ -24,6 +24,7 @@ fi
 
 # Build complete kernel with GUI
 echo "Building complete kernel with GUI..."
+cd /workspaces/IKOS/kernel
 make kernel
 
 if [ $? -eq 0 ]; then
@@ -39,7 +40,7 @@ echo "======================================"
 
 # List GUI object files
 echo "GUI Object Files:"
-find build/ -name "*gui*" -type f | sort
+find ../build/ -name "*gui*" -type f | sort
 
 echo ""
 echo "======================================"
@@ -97,15 +98,15 @@ echo "Code Statistics:"
 echo "======================================"
 
 echo "Lines of Code:"
-wc -l include/gui.h kernel/gui*.c | tail -1
+wc -l ../include/gui.h gui*.c | tail -1
 
 echo ""
 echo "Header Size:"
-wc -l include/gui.h
+wc -l ../include/gui.h
 
 echo ""
 echo "Implementation Files:"
-for file in kernel/gui*.c; do
+for file in gui*.c; do
     echo "  $(basename $file): $(wc -l < $file) lines"
 done
 

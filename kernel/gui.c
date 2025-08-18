@@ -32,9 +32,6 @@ bool g_widget_slots[GUI_MAX_WIDGETS] = {false};
 /* Graphics context */
 gui_graphics_context_t g_graphics_ctx;
 
-/* Graphics context */
-static gui_graphics_context_t g_graphics_ctx;
-
 /* ================================
  * Internal Helper Functions
  * ================================ */
@@ -168,12 +165,15 @@ int gui_init(void) {
     memset(g_widget_slots, 0, sizeof(g_widget_slots));
     
     /* Initialize desktop */
+    fb_info_t* fb_info = fb_get_info();
     g_desktop.background_color = GUI_COLOR_LIGHT_GRAY;
-    g_desktop.screen_bounds = gui_rect_make(0, 0, fb_get_width(), fb_get_height());
+    g_desktop.screen_bounds = gui_rect_make(0, 0, fb_info ? fb_info->width : 800, 
+                                           fb_info ? fb_info->height : 600);
     g_desktop.show_taskbar = true;
     g_desktop.show_desktop_icons = true;
     g_desktop.cursor_visible = true;
-    g_desktop.cursor_position = gui_point_make(fb_get_width() / 2, fb_get_height() / 2);
+    g_desktop.cursor_position = gui_point_make(g_desktop.screen_bounds.width / 2, 
+                                             g_desktop.screen_bounds.height / 2);
     
     /* Initialize graphics context */
     memset(&g_graphics_ctx, 0, sizeof(gui_graphics_context_t));
@@ -184,9 +184,7 @@ int gui_init(void) {
     g_gui_initialized = true;
     
     /* Clear screen with desktop background */
-    fb_clear_screen();
-    fb_fill_rect(0, 0, fb_get_width(), fb_get_height(), 
-                 gui_color_make_rgb(192, 192, 192)); /* Light gray */
+    fb_clear(fb_rgb(192, 192, 192)); /* Light gray */
     
     return 0;
 }
@@ -297,8 +295,7 @@ void gui_render(void) {
     }
     
     /* Clear background */
-    fb_fill_rect(0, 0, fb_get_width(), fb_get_height(),
-                 gui_color_make_rgb(192, 192, 192));
+    fb_clear(fb_rgb(192, 192, 192));
     
     /* Render windows from back to front (reverse z-order) */
     /* For simplicity, we'll render in creation order for now */
@@ -339,7 +336,7 @@ void gui_set_wallpaper(const char* path) {
     if (path) {
         /* Allocate and copy new path */
         size_t len = strlen(path);
-        g_desktop.wallpaper_path = (char*)malloc(len + 1);
+        g_desktop.wallpaper_path = (char*)kmalloc(len + 1);
         if (g_desktop.wallpaper_path) {
             strcpy(g_desktop.wallpaper_path, path);
         }
@@ -392,7 +389,7 @@ gui_window_t* gui_create_window(const char* title, gui_rect_t bounds, gui_window
     /* Copy title */
     if (title) {
         size_t len = strlen(title);
-        window->title = (char*)malloc(len + 1);
+        window->title = (char*)kmalloc(len + 1);
         if (window->title) {
             strcpy(window->title, title);
         }
@@ -410,7 +407,7 @@ gui_window_t* gui_create_window(const char* title, gui_rect_t bounds, gui_window
     }
     
     /* Allocate back buffer for window */
-    window->back_buffer = (fb_color_t*)malloc(bounds.width * bounds.height * sizeof(fb_color_t));
+    window->back_buffer = (fb_color_t*)kmalloc(bounds.width * bounds.height * sizeof(fb_color_t));
     
     /* Add to window list */
     add_window_to_list(window);
@@ -433,10 +430,10 @@ void gui_destroy_window(gui_window_t* window) {
     
     /* Free resources */
     if (window->title) {
-        free(window->title);
+        kfree(window->title);
     }
     if (window->back_buffer) {
-        free(window->back_buffer);
+        kfree(window->back_buffer);
     }
     
     /* Remove from window list */
@@ -489,8 +486,8 @@ void gui_resize_window(gui_window_t* window, gui_size_t size) {
     
     /* Reallocate back buffer */
     if (window->back_buffer) {
-        free(window->back_buffer);
-        window->back_buffer = (fb_color_t*)malloc(size.width * size.height * sizeof(fb_color_t));
+        kfree(window->back_buffer);
+        window->back_buffer = (fb_color_t*)kmalloc(size.width * size.height * sizeof(fb_color_t));
     }
     
     /* Mark for redraw */
@@ -503,14 +500,14 @@ void gui_set_window_title(gui_window_t* window, const char* title) {
     
     /* Free existing title */
     if (window->title) {
-        free(window->title);
+        kfree(window->title);
         window->title = NULL;
     }
     
     /* Copy new title */
     if (title) {
         size_t len = strlen(title);
-        window->title = (char*)malloc(len + 1);
+        window->title = (char*)kmalloc(len + 1);
         if (window->title) {
             strcpy(window->title, title);
         }
@@ -564,8 +561,8 @@ void gui_set_window_state(gui_window_t* window, gui_window_state_t state) {
     
     /* Reallocate back buffer */
     if (window->back_buffer) {
-        free(window->back_buffer);
-        window->back_buffer = (fb_color_t*)malloc(window->bounds.width * window->bounds.height * sizeof(fb_color_t));
+        kfree(window->back_buffer);
+        window->back_buffer = (fb_color_t*)kmalloc(window->bounds.width * window->bounds.height * sizeof(fb_color_t));
     }
     
     invalidate_window_rect(window, window->bounds);
