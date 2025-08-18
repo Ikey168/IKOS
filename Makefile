@@ -81,6 +81,14 @@ AUTH_OBJECTS = $(BUILD_DIR)/auth_core.o $(BUILD_DIR)/auth_authorization.o \
                $(BUILD_DIR)/auth_mfa.o
 AUTH_LIBS = -lssl -lcrypto -lpthread
 
+# User Input Handling System specific files - Issue #38
+INPUT_SOURCES = $(KERNEL_DIR)/input_manager.c $(KERNEL_DIR)/input_events.c \
+                $(KERNEL_DIR)/input_keyboard.c $(KERNEL_DIR)/input_mouse.c \
+                $(KERNEL_DIR)/input_api.c
+INPUT_OBJECTS = $(BUILD_DIR)/input_manager.o $(BUILD_DIR)/input_events.o \
+                $(BUILD_DIR)/input_keyboard.o $(BUILD_DIR)/input_mouse.o \
+                $(BUILD_DIR)/input_api.o
+
 # Network stack source files (including TCP/IP)
 NETWORK_SOURCES = $(KERNEL_DIR)/net/network_core.c $(KERNEL_DIR)/net/ethernet.c $(KERNEL_DIR)/net/udp.c $(KERNEL_DIR)/net/tcp.c
 NETWORK_OBJECTS = $(BUILD_DIR)/network_core.o $(BUILD_DIR)/ethernet.o $(BUILD_DIR)/udp.o $(BUILD_DIR)/tcp.o
@@ -187,6 +195,10 @@ $(BUILD_DIR)/fat_test: $(FAT_OBJECTS) $(VFS_OBJECTS) $(BUILD_DIR)/test_fat.o | $
 # Build keyboard driver test executable
 $(BUILD_DIR)/keyboard_test: $(KEYBOARD_OBJECTS) $(BUILD_DIR)/test_test_keyboard.o | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $(KEYBOARD_OBJECTS) $(BUILD_DIR)/test_test_keyboard.o -nostdlib -lgcc -no-pie
+
+# Build input system test executable
+$(BUILD_DIR)/input_test: $(INPUT_OBJECTS) $(BUILD_DIR)/test_input.o | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $@ $(INPUT_OBJECTS) $(BUILD_DIR)/test_input.o -nostdlib -lgcc -no-pie
 
 # Build advanced memory management test executable
 $(BUILD_DIR)/advanced_memory_test: $(MEMORY_ADVANCED_OBJECTS) $(BUILD_DIR)/test_advanced_memory.o | $(BUILD_DIR)
@@ -326,6 +338,14 @@ keyboard-smoke: $(BUILD_DIR)/keyboard_test
 # Keyboard hardware test (requires actual keyboard)
 keyboard-hardware: $(BUILD_DIR)/keyboard_test
 	$(BUILD_DIR)/keyboard_test hardware
+
+# Run input system tests
+test-input: $(BUILD_DIR)/input_test
+	$(BUILD_DIR)/input_test
+
+# Input system smoke test
+input-smoke: $(BUILD_DIR)/input_test
+	$(BUILD_DIR)/input_test smoke
 
 # =============================================================================
 # ADVANCED MEMORY MANAGEMENT TARGETS - Issue #27
