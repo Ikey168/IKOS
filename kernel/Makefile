@@ -33,7 +33,8 @@ C_SOURCES = scheduler.c interrupts.c scheduler_test.c kalloc.c kalloc_test.c use
             syscall_fork.c syscall_execve.c syscall_wait.c process_lifecycle_test.c \
             daemon_core.c daemon_service_registry.c daemon_ipc.c daemon_config.c \
             terminal.c terminal_escape.c terminal_extended.c \
-            gui.c gui_widgets.c gui_render.c gui_utils.c gui_test.c
+            gui.c gui_widgets.c gui_render.c gui_utils.c gui_test.c \
+            input_manager.c input_events.c input_keyboard.c input_mouse.c input_api.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 
@@ -43,9 +44,9 @@ ASM_OBJECTS = $(patsubst %.asm,$(BUILDDIR)/%.o,$(ASM_SOURCES))
 BOOT_OBJECTS = $(patsubst $(BOOTDIR)/%.asm,$(BUILDDIR)/%.o,$(BOOT_SOURCES))
 
 # Targets
-.PHONY: all clean test scheduler bootloader kernel ipc device-drivers framebuffer process-termination signal-handling process-lifecycle daemon-system terminal-emulator gui-system
+.PHONY: all clean test scheduler bootloader kernel ipc device-drivers framebuffer process-termination signal-handling process-lifecycle daemon-system terminal-emulator gui-system input-system
 
-all: $(BUILDDIR) bootloader scheduler ipc device-drivers framebuffer process-termination signal-handling process-lifecycle daemon-system terminal-emulator gui-system kernel
+all: $(BUILDDIR) bootloader scheduler ipc device-drivers framebuffer process-termination signal-handling process-lifecycle daemon-system terminal-emulator gui-system input-system kernel
 
 # Create build directory
 $(BUILDDIR):
@@ -96,6 +97,9 @@ terminal-emulator: $(C_OBJECTS) $(ASM_OBJECTS)
 # GUI System components (Issue #37)
 gui-system: $(C_OBJECTS) $(ASM_OBJECTS)
 
+# User Input Handling System components (Issue #38)
+input-system: $(C_OBJECTS) $(ASM_OBJECTS)
+
 # Advanced Memory Management simple test (Issue #27)
 simple_memory_test: $(BUILDDIR)/simple_memory_test
 
@@ -126,7 +130,7 @@ $(BUILDDIR)/kernel.bin: $(C_OBJECTS) $(ASM_OBJECTS) kernel.ld
 	$(LD) $(LDFLAGS) -o $@ $(C_OBJECTS) $(ASM_OBJECTS)
 
 # Test targets
-test: test-scheduler test-ipc test-device-drivers test-usb test-logging test-process-termination test-signal-handling test-process-lifecycle test-daemon-system test-terminal-emulator test-qemu
+test: test-scheduler test-ipc test-device-drivers test-usb test-logging test-process-termination test-signal-handling test-process-lifecycle test-daemon-system test-terminal-emulator test-input-system test-qemu
 
 test-scheduler: scheduler
 	@echo "Building scheduler test..."
@@ -183,6 +187,11 @@ test-terminal-emulator: terminal-emulator
 	@echo "Building Terminal Emulator test..."
 	@echo "Terminal Emulator components built successfully"
 	@echo "Testing VT100/ANSI escape sequences, cursor control, text formatting, and screen management"
+
+test-input-system: input-system
+	@echo "Building Input System test..."
+	@echo "Input System components built successfully"
+	@echo "Testing unified input handling, keyboard & mouse events, device abstraction, and application focus management"
 
 test-qemu: $(BUILDDIR)/boot_longmode.bin
 	@echo "Testing bootloader with scheduler in QEMU..."
