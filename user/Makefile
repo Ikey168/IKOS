@@ -15,10 +15,14 @@ IPC_OBJECTS = $(IPC_SOURCES:.c=.o)
 FS_SOURCES = fs_user_api.c fs_commands.c vfs_stubs.c
 FS_OBJECTS = $(FS_SOURCES:.c=.o)
 
+# CLI Shell Source files - Issue #36
+CLI_SOURCES = ikos_cli_shell.c simple_shell.c ikos_cli_standalone.c
+CLI_OBJECTS = $(CLI_SOURCES:.c=.o)
+
 # Test and example sources
-TEST_SOURCES = fs_test.c
+TEST_SOURCES = fs_test.c cli_shell_test.c
 EXAMPLE_SOURCES = file_manager_example.c simple_editor.c
-ALL_SOURCES = $(IPC_SOURCES) $(FS_SOURCES) $(TEST_SOURCES) $(EXAMPLE_SOURCES)
+ALL_SOURCES = $(IPC_SOURCES) $(FS_SOURCES) $(CLI_SOURCES) $(TEST_SOURCES) $(EXAMPLE_SOURCES)
 ALL_OBJECTS = $(ALL_SOURCES:.c=.o)
 
 # Targets
@@ -28,27 +32,33 @@ FS_LIBRARY = libfs_user.a
 FS_TEST = fs_test
 FILE_MANAGER = file_manager
 SIMPLE_EDITOR = simple_editor
+CLI_SHELL = ikos_cli_shell
+CLI_TEST = cli_shell_test
+CLI_STANDALONE = ikos_cli_standalone
 
-.PHONY: all clean ipc fs examples test help install
+.PHONY: all clean ipc fs cli examples test help install
 
-all: ipc fs examples
+all: ipc fs cli examples
 
 ipc: $(IPC_EXAMPLE) $(IPC_LIBRARY)
 
 fs: $(FS_LIBRARY)
 
+cli: $(CLI_SHELL) $(CLI_STANDALONE)
+
 examples: $(FILE_MANAGER) $(SIMPLE_EDITOR)
 
-test: $(FS_TEST)
+test: $(FS_TEST) $(CLI_TEST)
 
 help:
 	@echo "IKOS User-Space Build System"
 	@echo "============================"
 	@echo ""
 	@echo "Targets:"
-	@echo "  all        - Build IPC, filesystem, and examples"
+	@echo "  all        - Build IPC, filesystem, CLI shell, and examples"
 	@echo "  ipc        - Build IPC library and example"
 	@echo "  fs         - Build filesystem library"
+	@echo "  cli        - Build CLI shell (Issue #36)"
 	@echo "  examples   - Build example programs"
 	@echo "  test       - Build and run filesystem tests"
 	@echo "  clean      - Clean all build files"
@@ -80,6 +90,16 @@ $(FILE_MANAGER): file_manager_example.o $(FS_OBJECTS) ipc_syscall_stubs.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
 $(SIMPLE_EDITOR): simple_editor.o fs_user_api.o ipc_syscall_stubs.o
+	$(CC) $(LDFLAGS) -o $@ $^
+
+# CLI Shell targets - Issue #36
+$(CLI_SHELL): ikos_cli_shell.o fs_user_api.o ipc_user_api.o
+	$(CC) $(LDFLAGS) -o $@ $^
+
+$(CLI_STANDALONE): ikos_cli_standalone.o
+	$(CC) $(LDFLAGS) -o $@ $^
+
+$(CLI_TEST): cli_shell_test.o ikos_cli_shell.o fs_user_api.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
 # Generic compilation rule
@@ -135,3 +155,7 @@ fs_test.o: fs_test.c fs_user_api.h fs_commands.h
 file_manager_example.o: file_manager_example.c fs_user_api.h fs_commands.h
 simple_editor.o: simple_editor.c fs_user_api.h
 ipc_syscall_stubs.o: ipc_syscall_stubs.c
+ikos_cli_shell.o: ikos_cli_shell.c ikos_cli_shell.h fs_user_api.h
+ikos_cli_standalone.o: ikos_cli_standalone.c ikos_cli_shell.h
+cli_shell_test.o: cli_shell_test.c ikos_cli_shell.h
+simple_shell.o: simple_shell.c ikos_cli_shell.h
