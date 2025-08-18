@@ -15,6 +15,7 @@
 #include "../include/process.h"
 #include "../include/user_app_loader.h"
 #include "../include/app_loader.h"
+#include "../include/file_explorer.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -33,6 +34,8 @@ void reboot_system(void);
 
 /* External function declarations */
 extern void test_app_loader_basic(void);
+extern void file_explorer_test_basic_operations(void);
+extern void file_explorer_run_tests(void);
 
 /* Kernel entry point called from bootloader */
 void kernel_main(void) {
@@ -96,6 +99,19 @@ void kernel_init(void) {
         kernel_print("Failed to initialize Application Loader\n");
     }
     
+    /* Initialize File Explorer - Issue #41 */
+    kernel_print("Initializing File Explorer...\n");
+    if (file_explorer_init(NULL) == FILE_EXPLORER_SUCCESS) {
+        kernel_print("File Explorer initialized successfully\n");
+        
+        /* Register File Explorer as application */
+        if (file_explorer_register_application() == APP_ERROR_SUCCESS) {
+            kernel_print("File Explorer registered as application\n");
+        }
+    } else {
+        kernel_print("Failed to initialize File Explorer\n");
+    }
+    
     /* vfs_init(); */
     
     kernel_print("IKOS kernel initialized successfully\n");
@@ -150,6 +166,15 @@ void kernel_loop(void) {
                     case 'l':
                         test_app_loader_basic();
                         break;
+                    case 'e':
+                        file_explorer_test_basic_operations();
+                        break;
+                    case 'x':
+                        file_explorer_run_tests();
+                        break;
+                    case 'o':
+                        file_explorer_launch_instance("/");
+                        break;
                     case 'r':
                         kernel_print("Rebooting system...\n");
                         reboot_system();
@@ -182,6 +207,9 @@ void show_help(void) {
     kernel_print("f - Show framebuffer driver info\n");
     kernel_print("a - Show application loader info\n");
     kernel_print("l - Test application loader\n");
+    kernel_print("e - Test file explorer basic operations\n");
+    kernel_print("x - Run file explorer test suite\n");
+    kernel_print("o - Open file explorer window\n");
     kernel_print("r - Reboot system\n");
     kernel_print("\n");
 }
