@@ -14,6 +14,7 @@
 void show_prompt() {
     printf("$ ");
     fflush(stdout);
+    fflush(stdout);
 }
 
 /* Parse command line into arguments */
