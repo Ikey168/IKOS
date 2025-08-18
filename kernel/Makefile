@@ -36,7 +36,8 @@ C_SOURCES = scheduler.c interrupts.c scheduler_test.c kalloc.c kalloc_test.c use
             gui.c gui_widgets.c gui_render.c gui_utils.c gui_test.c \
             input_manager.c input_events.c input_keyboard.c input_mouse.c input_api.c \
             app_loader.c app_loader_test.c \
-            file_explorer.c file_explorer_test.c
+            file_explorer.c file_explorer_test.c \
+            notifications.c notifications_test.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 
@@ -46,9 +47,9 @@ ASM_OBJECTS = $(patsubst %.asm,$(BUILDDIR)/%.o,$(ASM_SOURCES))
 BOOT_OBJECTS = $(patsubst $(BOOTDIR)/%.asm,$(BUILDDIR)/%.o,$(BOOT_SOURCES))
 
 # Targets
-.PHONY: all clean test scheduler bootloader kernel ipc device-drivers framebuffer process-termination signal-handling process-lifecycle daemon-system terminal-emulator gui-system input-system
+.PHONY: all clean test scheduler bootloader kernel ipc device-drivers framebuffer process-termination signal-handling process-lifecycle daemon-system terminal-emulator gui-system input-system notifications
 
-all: $(BUILDDIR) bootloader scheduler ipc device-drivers framebuffer process-termination signal-handling process-lifecycle daemon-system terminal-emulator gui-system input-system kernel
+all: $(BUILDDIR) bootloader scheduler ipc device-drivers framebuffer process-termination signal-handling process-lifecycle daemon-system terminal-emulator gui-system input-system notifications kernel
 
 # Create build directory
 $(BUILDDIR):
@@ -101,6 +102,9 @@ gui-system: $(C_OBJECTS) $(ASM_OBJECTS)
 
 # User Input Handling System components (Issue #38)
 input-system: $(C_OBJECTS) $(ASM_OBJECTS)
+
+# Notifications & System Alerts components (Issue #42)
+notifications: $(C_OBJECTS) $(ASM_OBJECTS)
 
 # Window Manager System components (Issue #39)
 window-manager: $(C_OBJECTS) $(ASM_OBJECTS)

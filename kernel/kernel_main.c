@@ -16,6 +16,7 @@
 #include "../include/user_app_loader.h"
 #include "../include/app_loader.h"
 #include "../include/file_explorer.h"
+#include "../include/notifications.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -27,6 +28,7 @@ void show_timer_info(void);
 void show_device_info(void);
 void show_framebuffer_info(void);
 void show_app_loader_info(void);
+void show_notification_info(void);
 void kernel_print(const char* format, ...);
 void outb(uint16_t port, uint8_t value);
 uint8_t inb(uint16_t port);
@@ -36,6 +38,7 @@ void reboot_system(void);
 extern void test_app_loader_basic(void);
 extern void file_explorer_test_basic_operations(void);
 extern void file_explorer_run_tests(void);
+extern void notification_test_basic(void);
 
 /* Kernel entry point called from bootloader */
 void kernel_main(void) {
@@ -112,6 +115,14 @@ void kernel_init(void) {
         kernel_print("Failed to initialize File Explorer\n");
     }
     
+    /* Initialize Notification System - Issue #42 */
+    kernel_print("Initializing Notification System...\n");
+    if (notification_system_init(NULL) == NOTIFICATION_SUCCESS) {
+        kernel_print("Notification System initialized successfully\n");
+    } else {
+        kernel_print("Failed to initialize Notification System\n");
+    }
+    
     /* vfs_init(); */
     
     kernel_print("IKOS kernel initialized successfully\n");
@@ -175,6 +186,12 @@ void kernel_loop(void) {
                     case 'o':
                         file_explorer_launch_instance("/");
                         break;
+                    case 'n':
+                        show_notification_info();
+                        break;
+                    case 'm':
+                        notification_test_basic();
+                        break;
                     case 'r':
                         kernel_print("Rebooting system...\n");
                         reboot_system();
@@ -210,6 +227,8 @@ void show_help(void) {
     kernel_print("e - Test file explorer basic operations\n");
     kernel_print("x - Run file explorer test suite\n");
     kernel_print("o - Open file explorer window\n");
+    kernel_print("n - Show notification system info\n");
+    kernel_print("m - Test notification system\n");
     kernel_print("r - Reboot system\n");
     kernel_print("\n");
 }
@@ -380,6 +399,27 @@ void show_app_loader_info(void) {
         kernel_print("Total memory used: %u bytes\n", stats.total_memory_used);
     } else {
         kernel_print("Failed to get application loader statistics\n");
+    }
+    kernel_print("\n");
+}
+
+/**
+ * Show notification system information
+ */
+void show_notification_info(void) {
+    kernel_print("\nNotification System Information:\n");
+    
+    notification_stats_t stats;
+    if (notification_get_stats(&stats) == NOTIFICATION_SUCCESS) {
+        kernel_print("Total notifications sent: %lu\n", stats.total_notifications_sent);
+        kernel_print("Total notifications shown: %lu\n", stats.total_notifications_shown);
+        kernel_print("Total notifications dismissed: %lu\n", stats.total_notifications_dismissed);
+        kernel_print("Current active count: %u\n", stats.current_active_count);
+        kernel_print("Peak active count: %u\n", stats.peak_active_count);
+        kernel_print("System alerts: %lu\n", stats.total_system_alerts);
+        kernel_print("Panel visible: %s\n", notification_is_panel_visible() ? "Yes" : "No");
+    } else {
+        kernel_print("Failed to get notification system statistics\n");
     }
     kernel_print("\n");
 }
