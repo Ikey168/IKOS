@@ -38,7 +38,8 @@ typedef enum {
     LOG_CAT_BOOT     = 6,   /* Boot process */
     LOG_CAT_PROCESS  = 7,   /* Process management */
     LOG_CAT_USB      = 8,   /* USB subsystem */
-    LOG_CAT_MAX      = 9    /* Maximum category count */
+    LOG_CAT_TEST     = 9,   /* Testing framework */
+    LOG_CAT_MAX      = 10   /* Maximum category count */
 } log_category_t;
 
 /* ================================

@@ -90,7 +90,7 @@ void kernel_init(void) {
     
     /* Initialize Unified Application Loader - Issue #40 */
     kernel_print("Initializing Unified Application Loader...\n");
-    if (app_loader_init(NULL) == APP_ERROR_SUCCESS) {
+    if (unified_app_loader_init(NULL) == APP_ERROR_SUCCESS) {
         kernel_print("Application Loader initialized successfully\n");
     } else {
         kernel_print("Failed to initialize Application Loader\n");

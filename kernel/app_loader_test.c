@@ -63,13 +63,13 @@ static uint32_t test_failed = 0;
 #define TEST_START(name) \
     do { \
         test_count++; \
-        KLOG_INFO(LOG_CAT_TEST, "Starting test: %s", name); \
+        klog_info(LOG_CAT_TEST, "Starting test: %s", name); \
     } while(0)
 
 #define TEST_ASSERT(condition, message) \
     do { \
         if (!(condition)) { \
-            KLOG_ERROR(LOG_CAT_TEST, "ASSERTION FAILED: %s", message); \
+            klog_error(LOG_CAT_TEST, "ASSERTION FAILED: %s", message); \
             test_failed++; \
             return false; \
         } \
@@ -78,14 +78,14 @@ static uint32_t test_failed = 0;
 #define TEST_PASS(name) \
     do { \
         test_passed++; \
-        KLOG_INFO(LOG_CAT_TEST, "Test PASSED: %s", name); \
+        klog_info(LOG_CAT_TEST, "Test PASSED: %s", name); \
         return true; \
     } while(0)
 
 #define TEST_FAIL(name, message) \
     do { \
         test_failed++; \
-        KLOG_ERROR(LOG_CAT_TEST, "Test FAILED: %s - %s", name, message); \
+        klog_error(LOG_CAT_TEST, "Test FAILED: %s - %s", name, message); \
         return false; \
     } while(0)
 
@@ -97,11 +97,11 @@ static bool test_app_loader_initialization(void) {
     TEST_START("Application Loader Initialization");
     
     /* Test initialization with default config */
-    int result = app_loader_init(NULL);
+    int result = unified_app_loader_init(NULL);
     TEST_ASSERT(result == APP_ERROR_SUCCESS, "Failed to initialize with default config");
     
     /* Test double initialization */
-    result = app_loader_init(NULL);
+    result = unified_app_loader_init(NULL);
     TEST_ASSERT(result == APP_ERROR_SUCCESS, "Double initialization should succeed");
     
     /* Test config retrieval */
@@ -249,7 +249,7 @@ static bool test_gui_app_launch(void) {
     /* Check if GUI is available */
     app_loader_config_t* config = app_loader_get_config();
     if (!config || !config->gui_enabled) {
-        KLOG_INFO(LOG_CAT_TEST, "GUI not available, skipping GUI launch test");
+        klog_info(LOG_CAT_TEST, "GUI not available, skipping GUI launch test");
         test_passed++;
         return true;
     }
@@ -265,7 +265,7 @@ static bool test_gui_app_launch(void) {
         /* Clean up */
         app_terminate_instance((uint32_t)instance_id, true);
     } else {
-        KLOG_INFO(LOG_CAT_TEST, "GUI launch failed as expected (no GUI binary)");
+        klog_info(LOG_CAT_TEST, "GUI launch failed as expected (no GUI binary)");
     }
     
     TEST_PASS("GUI Application Launch");
@@ -277,7 +277,7 @@ static bool test_cli_app_launch(void) {
     /* Check if CLI is available */
     app_loader_config_t* config = app_loader_get_config();
     if (!config || !config->cli_enabled) {
-        KLOG_INFO(LOG_CAT_TEST, "CLI not available, skipping CLI launch test");
+        klog_info(LOG_CAT_TEST, "CLI not available, skipping CLI launch test");
         test_passed++;
         return true;
     }
@@ -493,7 +493,7 @@ static bool test_app_unregistration(void) {
  * ================================ */
 
 void run_app_loader_tests(void) {
-    KLOG_INFO(LOG_CAT_TEST, "=== Starting Application Loader Test Suite ===");
+    klog_info(LOG_CAT_TEST, "=== Starting Application Loader Test Suite ===");
     
     /* Initialize test counters */
     test_count = 0;
@@ -516,30 +516,30 @@ void run_app_loader_tests(void) {
     test_app_unregistration();
     
     /* Print results */
-    KLOG_INFO(LOG_CAT_TEST, "=== Application Loader Test Results ===");
-    KLOG_INFO(LOG_CAT_TEST, "Total Tests: %u", test_count);
-    KLOG_INFO(LOG_CAT_TEST, "Passed: %u", test_passed);
-    KLOG_INFO(LOG_CAT_TEST, "Failed: %u", test_failed);
+    klog_info(LOG_CAT_TEST, "=== Application Loader Test Results ===");
+    klog_info(LOG_CAT_TEST, "Total Tests: %u", test_count);
+    klog_info(LOG_CAT_TEST, "Passed: %u", test_passed);
+    klog_info(LOG_CAT_TEST, "Failed: %u", test_failed);
     
     if (test_failed == 0) {
-        KLOG_INFO(LOG_CAT_TEST, "*** ALL TESTS PASSED ***");
+        klog_info(LOG_CAT_TEST, "*** ALL TESTS PASSED ***");
     } else {
-        KLOG_ERROR(LOG_CAT_TEST, "*** %u TESTS FAILED ***", test_failed);
+        klog_error(LOG_CAT_TEST, "*** %u TESTS FAILED ***", test_failed);
     }
     
     /* Cleanup */
-    app_loader_shutdown();
+    unified_app_loader_shutdown();
     
-    KLOG_INFO(LOG_CAT_TEST, "=== Application Loader Test Suite Complete ===");
+    klog_info(LOG_CAT_TEST, "=== Application Loader Test Suite Complete ===");
 }
 
 /* Simple test runner for integration */
 void test_app_loader_basic(void) {
-    KLOG_INFO(LOG_CAT_TEST, "Running basic application loader test...");
+    klog_info(LOG_CAT_TEST, "Running basic application loader test...");
     
     /* Initialize */
-    if (app_loader_init(NULL) != APP_ERROR_SUCCESS) {
-        KLOG_ERROR(LOG_CAT_TEST, "Failed to initialize application loader");
+    if (unified_app_loader_init(NULL) != APP_ERROR_SUCCESS) {
+        klog_error(LOG_CAT_TEST, "Failed to initialize application loader");
         return;
     }
     
@@ -556,8 +556,8 @@ void test_app_loader_basic(void) {
     };
     
     if (app_register(&test_app) != APP_ERROR_SUCCESS) {
-        KLOG_ERROR(LOG_CAT_TEST, "Failed to register test application");
-        app_loader_shutdown();
+        klog_error(LOG_CAT_TEST, "Failed to register test application");
+        unified_app_loader_shutdown();
         return;
     }
     
@@ -565,16 +565,16 @@ void test_app_loader_basic(void) {
     int32_t instance_id = app_launch_by_name("basic_test", NULL, NULL, 
                                            APP_LAUNCH_FOREGROUND, 0);
     if (instance_id > 0) {
-        KLOG_INFO(LOG_CAT_TEST, "Successfully launched application (Instance ID: %d)", instance_id);
+        klog_info(LOG_CAT_TEST, "Successfully launched application (Instance ID: %d)", instance_id);
         
         /* Terminate */
         app_terminate_instance((uint32_t)instance_id, true);
-        KLOG_INFO(LOG_CAT_TEST, "Successfully terminated application");
+        klog_info(LOG_CAT_TEST, "Successfully terminated application");
     } else {
-        KLOG_ERROR(LOG_CAT_TEST, "Failed to launch application: %d", instance_id);
+        klog_error(LOG_CAT_TEST, "Failed to launch application: %d", instance_id);
     }
     
     /* Cleanup */
-    app_loader_shutdown();
-    KLOG_INFO(LOG_CAT_TEST, "Basic application loader test complete");
+    unified_app_loader_shutdown();
+    klog_info(LOG_CAT_TEST, "Basic application loader test complete");
 }

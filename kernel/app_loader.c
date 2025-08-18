@@ -49,13 +49,13 @@ static void cleanup_app_instance_internal(app_instance_t* instance);
  * Core Application Loader Functions
  * ================================ */
 
-int app_loader_init(app_loader_config_t* config) {
+int unified_app_loader_init(app_loader_config_t* config) {
     if (g_app_loader_initialized) {
-        KLOG_WARN(LOG_CAT_PROCESS, "Application loader already initialized");
+        klog_warn(LOG_CAT_PROCESS, "Application loader already initialized");
         return APP_ERROR_SUCCESS;
     }
     
-    KLOG_INFO(LOG_CAT_PROCESS, "Initializing unified application loader");
+    klog_info(LOG_CAT_PROCESS, "Initializing unified application loader");
     
     /* Set default configuration if none provided */
     if (config) {
@@ -86,21 +86,21 @@ int app_loader_init(app_loader_config_t* config) {
     g_next_instance_id = 1;
     
     /* Initialize underlying systems */
-    if (app_loader_init() != 0) {
-        KLOG_ERROR(LOG_CAT_PROCESS, "Failed to initialize user application loader");
+    if (app_loader_init() != 0) {  /* This calls the user_app_loader function */
+        klog_error(LOG_CAT_PROCESS, "Failed to initialize user application loader");
         return APP_ERROR_LAUNCH_FAILED;
     }
     
     /* Check GUI availability */
     if (g_config.gui_enabled) {
         if (gui_init() != 0) {
-            KLOG_WARN(LOG_CAT_PROCESS, "GUI system not available, disabling GUI support");
+            klog_warn(LOG_CAT_PROCESS, "GUI system not available, disabling GUI support");
             g_config.gui_enabled = false;
         }
     }
     
     /* Register built-in applications */
-    KLOG_DEBUG(LOG_CAT_PROCESS, "Registering built-in applications");
+    klog_debug(LOG_CAT_PROCESS, "Registering built-in applications");
     
     /* Register shell application */
     app_descriptor_t shell_desc = {0};
@@ -129,27 +129,27 @@ int app_loader_init(app_loader_config_t* config) {
     /* Scan system directories for applications */
     if (g_config.system_apps_dir[0] != '\0') {
         int system_apps = app_scan_directory(g_config.system_apps_dir);
-        KLOG_INFO(LOG_CAT_PROCESS, "Found %d system applications", system_apps);
+        klog_info(LOG_CAT_PROCESS, "Found %d system applications", system_apps);
     }
     
     if (g_config.user_apps_dir[0] != '\0') {
         int user_apps = app_scan_directory(g_config.user_apps_dir);
-        KLOG_INFO(LOG_CAT_PROCESS, "Found %d user applications", user_apps);
+        klog_info(LOG_CAT_PROCESS, "Found %d user applications", user_apps);
     }
     
     g_app_loader_initialized = true;
-    KLOG_INFO(LOG_CAT_PROCESS, "Application loader initialized with %d registered applications", 
+    klog_info(LOG_CAT_PROCESS, "Application loader initialized with %d registered applications", 
               g_app_registry_count);
     
     return APP_ERROR_SUCCESS;
 }
 
-void app_loader_shutdown(void) {
+void unified_app_loader_shutdown(void) {
     if (!g_app_loader_initialized) {
         return;
     }
     
-    KLOG_INFO(LOG_CAT_PROCESS, "Shutting down application loader");
+    klog_info(LOG_CAT_PROCESS, "Shutting down application loader");
     
     /* Terminate all running applications */
     for (uint32_t i = 0; i < APP_LOADER_MAX_INSTANCES; i++) {
@@ -165,7 +165,7 @@ void app_loader_shutdown(void) {
     g_instance_count = 0;
     
     g_app_loader_initialized = false;
-    KLOG_INFO(LOG_CAT_PROCESS, "Application loader shutdown complete");
+    klog_info(LOG_CAT_PROCESS, "Application loader shutdown complete");
 }
 
 app_loader_config_t* app_loader_get_config(void) {
@@ -214,14 +214,14 @@ int app_register(app_descriptor_t* descriptor) {
     
     /* Check if application already exists */
     if (app_find_by_name(descriptor->name) != NULL) {
-        KLOG_WARN(LOG_CAT_PROCESS, "Application '%s' already registered", descriptor->name);
+        klog_warn(LOG_CAT_PROCESS, "Application '%s' already registered", descriptor->name);
         return APP_ERROR_ALREADY_EXISTS;
     }
     
     /* Allocate descriptor slot */
     app_descriptor_t* slot = allocate_app_descriptor();
     if (!slot) {
-        KLOG_ERROR(LOG_CAT_PROCESS, "No more application registry slots available");
+        klog_error(LOG_CAT_PROCESS, "No more application registry slots available");
         return APP_ERROR_NO_MEMORY;
     }
     
@@ -229,7 +229,7 @@ int app_register(app_descriptor_t* descriptor) {
     *slot = *descriptor;
     g_app_registry_count++;
     
-    KLOG_DEBUG(LOG_CAT_PROCESS, "Registered application: %s (%s)", 
+    klog_debug(LOG_CAT_PROCESS, "Registered application: %s (%s)", 
                descriptor->name, descriptor->path);
     
     return APP_ERROR_SUCCESS;
@@ -249,7 +249,7 @@ int app_unregister(const char* name) {
             app_instance_t* instances[APP_LOADER_MAX_INSTANCES];
             int running_count = app_get_instances_by_name(name, instances, APP_LOADER_MAX_INSTANCES);
             if (running_count > 0) {
-                KLOG_WARN(LOG_CAT_PROCESS, "Cannot unregister '%s': %d instances running", 
+                klog_warn(LOG_CAT_PROCESS, "Cannot unregister '%s': %d instances running", 
                           name, running_count);
                 return APP_ERROR_RESOURCE_BUSY;
             }
@@ -258,7 +258,7 @@ int app_unregister(const char* name) {
             free_app_descriptor(&g_app_registry[i]);
             g_app_registry_count--;
             
-            KLOG_DEBUG(LOG_CAT_PROCESS, "Unregistered application: %s", name);
+            klog_debug(LOG_CAT_PROCESS, "Unregistered application: %s", name);
             return APP_ERROR_SUCCESS;
         }
     }
@@ -271,13 +271,13 @@ int app_scan_directory(const char* directory_path) {
         return 0;
     }
     
-    KLOG_DEBUG(LOG_CAT_PROCESS, "Scanning directory for applications: %s", directory_path);
+    klog_debug(LOG_CAT_PROCESS, "Scanning directory for applications: %s", directory_path);
     
     int found_count = 0;
     
     /* TODO: Implement actual directory scanning with VFS */
     /* For now, return 0 as placeholder */
-    KLOG_DEBUG(LOG_CAT_PROCESS, "Directory scanning not yet implemented");
+    klog_debug(LOG_CAT_PROCESS, "Directory scanning not yet implemented");
     
     return found_count;
 }
@@ -358,17 +358,17 @@ int32_t app_launch_by_name(const char* name, char* const argv[], char* const env
     /* Find application descriptor */
     app_descriptor_t* descriptor = app_find_by_name(name);
     if (!descriptor) {
-        KLOG_ERROR(LOG_CAT_PROCESS, "Application not found: %s", name);
+        klog_error(LOG_CAT_PROCESS, "Application not found: %s", name);
         g_stats.launch_failures++;
         return APP_ERROR_NOT_FOUND;
     }
     
-    KLOG_INFO(LOG_CAT_PROCESS, "Launching application: %s", name);
+    klog_info(LOG_CAT_PROCESS, "Launching application: %s", name);
     
     /* Allocate instance */
     app_instance_t* instance = allocate_app_instance();
     if (!instance) {
-        KLOG_ERROR(LOG_CAT_PROCESS, "No instance slots available");
+        klog_error(LOG_CAT_PROCESS, "No instance slots available");
         g_stats.launch_failures++;
         return APP_ERROR_NO_MEMORY;
     }
@@ -418,7 +418,7 @@ int32_t app_launch_by_name(const char* name, char* const argv[], char* const env
     }
     
     if (process_id < 0) {
-        KLOG_ERROR(LOG_CAT_PROCESS, "Failed to launch application: %s", name);
+        klog_error(LOG_CAT_PROCESS, "Failed to launch application: %s", name);
         free_app_instance(instance);
         g_stats.launch_failures++;
         return process_id;
@@ -427,7 +427,7 @@ int32_t app_launch_by_name(const char* name, char* const argv[], char* const env
     /* Get process reference */
     instance->process = process_get_by_pid((uint32_t)process_id);
     if (!instance->process) {
-        KLOG_ERROR(LOG_CAT_PROCESS, "Cannot find launched process: PID %d", process_id);
+        klog_error(LOG_CAT_PROCESS, "Cannot find launched process: PID %d", process_id);
         free_app_instance(instance);
         g_stats.launch_failures++;
         return APP_ERROR_LAUNCH_FAILED;
@@ -436,7 +436,7 @@ int32_t app_launch_by_name(const char* name, char* const argv[], char* const env
     /* Setup environment */
     int result = setup_app_environment(instance);
     if (result != APP_ERROR_SUCCESS) {
-        KLOG_ERROR(LOG_CAT_PROCESS, "Failed to setup environment for %s", name);
+        klog_error(LOG_CAT_PROCESS, "Failed to setup environment for %s", name);
         app_terminate_instance(instance->instance_id, true);
         return result;
     }
@@ -449,7 +449,7 @@ int32_t app_launch_by_name(const char* name, char* const argv[], char* const env
     descriptor->last_run_time = instance->start_time;
     descriptor->run_count++;
     
-    KLOG_INFO(LOG_CAT_PROCESS, "Successfully launched %s (Instance ID: %u, PID: %d)", 
+    klog_info(LOG_CAT_PROCESS, "Successfully launched %s (Instance ID: %u, PID: %d)", 
               name, instance->instance_id, process_id);
     
     return (int32_t)instance->instance_id;
@@ -486,7 +486,7 @@ int32_t app_launch_by_path(const char* path, char* const argv[], char* const env
 int32_t app_launch_gui(const char* name, char* const argv[], char* const envp[], 
                       gui_window_t* parent_window) {
     if (!g_config.gui_enabled) {
-        KLOG_ERROR(LOG_CAT_PROCESS, "GUI subsystem not available");
+        klog_error(LOG_CAT_PROCESS, "GUI subsystem not available");
         return APP_ERROR_INVALID_TYPE;
     }
     
@@ -501,7 +501,7 @@ int32_t app_launch_gui(const char* name, char* const argv[], char* const envp[],
 int32_t app_launch_cli(const char* name, char* const argv[], char* const envp[], 
                       uint32_t terminal_id) {
     if (!g_config.cli_enabled) {
-        KLOG_ERROR(LOG_CAT_PROCESS, "CLI subsystem not available");
+        klog_error(LOG_CAT_PROCESS, "CLI subsystem not available");
         return APP_ERROR_INVALID_TYPE;
     }
     
@@ -592,13 +592,13 @@ int app_terminate_instance(uint32_t instance_id, bool force) {
         return APP_ERROR_NOT_FOUND;
     }
     
-    KLOG_INFO(LOG_CAT_PROCESS, "Terminating application instance %u (%s)", 
+    klog_info(LOG_CAT_PROCESS, "Terminating application instance %u (%s)", 
               instance_id, instance->descriptor ? instance->descriptor->name : "unknown");
     
     /* Terminate the process */
     if (instance->process) {
         if (force) {
-            process_kill(instance->process);
+            process_kill(instance->process, 9);  /* SIGKILL */
         } else {
             process_terminate(instance->process);
         }
@@ -738,7 +738,7 @@ int app_setup_gui_environment(app_instance_t* instance) {
     }
     
     /* TODO: Setup GUI environment */
-    KLOG_DEBUG(LOG_CAT_PROCESS, "Setting up GUI environment for instance %u", 
+    klog_debug(LOG_CAT_PROCESS, "Setting up GUI environment for instance %u", 
                instance->instance_id);
     
     return APP_ERROR_SUCCESS;
@@ -750,7 +750,7 @@ int app_setup_cli_environment(app_instance_t* instance, uint32_t terminal_id) {
     }
     
     /* TODO: Setup CLI environment */
-    KLOG_DEBUG(LOG_CAT_PROCESS, "Setting up CLI environment for instance %u (terminal %u)", 
+    klog_debug(LOG_CAT_PROCESS, "Setting up CLI environment for instance %u (terminal %u)", 
                instance->instance_id, terminal_id);
     
     return APP_ERROR_SUCCESS;
@@ -759,7 +759,7 @@ int app_setup_cli_environment(app_instance_t* instance, uint32_t terminal_id) {
 static void cleanup_app_instance_internal(app_instance_t* instance) {
     if (!instance) return;
     
-    KLOG_DEBUG(LOG_CAT_PROCESS, "Cleaning up application instance %u", instance->instance_id);
+    klog_debug(LOG_CAT_PROCESS, "Cleaning up application instance %u", instance->instance_id);
     
     /* Cleanup environment */
     app_cleanup_environment(instance);

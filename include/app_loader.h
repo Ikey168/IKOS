@@ -107,12 +107,12 @@ typedef struct {
  * @param config Configuration parameters
  * @return 0 on success, negative error code on failure
  */
-int app_loader_init(app_loader_config_t* config);
+int unified_app_loader_init(app_loader_config_t* config);
 
 /**
  * Shutdown the application loader and cleanup resources
  */
-void app_loader_shutdown(void);
+void unified_app_loader_shutdown(void);
 
 /**
  * Get current application loader configuration
