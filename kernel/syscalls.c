@@ -5,6 +5,7 @@
 #include "process.h"
 #include "interrupts.h"
 #include "syscall_process.h"
+#include "window_manager_syscalls.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -23,6 +24,23 @@ int syscall_init(void);
 #define SYS_GETPPID     110
 #define SYS_WAIT        61
 #define SYS_WAITPID     247
+
+/* Window Manager syscalls */
+#define SYS_WM_REGISTER_APP     500
+#define SYS_WM_UNREGISTER_APP   501
+#define SYS_WM_CREATE_WINDOW    502
+#define SYS_WM_DESTROY_WINDOW   503
+#define SYS_WM_SHOW_WINDOW      504
+#define SYS_WM_HIDE_WINDOW      505
+#define SYS_WM_MOVE_WINDOW      506
+#define SYS_WM_RESIZE_WINDOW    507
+#define SYS_WM_FOCUS_WINDOW     508
+#define SYS_WM_GET_FOCUSED_WINDOW 509
+#define SYS_WM_SET_WINDOW_TITLE 510
+#define SYS_WM_BRING_TO_FRONT   511
+#define SYS_WM_SEND_TO_BACK     512
+#define SYS_WM_SET_WINDOW_STATE 513
+#define SYS_WM_GET_STATISTICS   514
 
 /* Forward declarations */
 static long sys_exit_impl(int status);
@@ -112,6 +130,67 @@ long handle_system_call(interrupt_frame_t* frame) {
                 int options = (int)frame->rdx;
                 result = sys_waitpid(pid, status, options);
             }
+            break;
+            
+        /* Window Manager System Calls */
+        case SYS_WM_REGISTER_APP:
+            result = sys_wm_register_app((const char*)frame->rdi);
+            break;
+            
+        case SYS_WM_UNREGISTER_APP:
+            result = sys_wm_unregister_app();
+            break;
+            
+        case SYS_WM_CREATE_WINDOW:
+            result = sys_wm_create_window((wm_create_params_t*)frame->rdi);
+            break;
+            
+        case SYS_WM_DESTROY_WINDOW:
+            result = sys_wm_destroy_window((uint32_t)frame->rdi);
+            break;
+            
+        case SYS_WM_SHOW_WINDOW:
+            result = sys_wm_show_window((uint32_t)frame->rdi);
+            break;
+            
+        case SYS_WM_HIDE_WINDOW:
+            result = sys_wm_hide_window((uint32_t)frame->rdi);
+            break;
+            
+        case SYS_WM_MOVE_WINDOW:
+            result = sys_wm_move_window((uint32_t)frame->rdi, (int32_t)frame->rsi, (int32_t)frame->rdx);
+            break;
+            
+        case SYS_WM_RESIZE_WINDOW:
+            result = sys_wm_resize_window((uint32_t)frame->rdi, (uint32_t)frame->rsi, (uint32_t)frame->rdx);
+            break;
+            
+        case SYS_WM_FOCUS_WINDOW:
+            result = sys_wm_focus_window((uint32_t)frame->rdi);
+            break;
+            
+        case SYS_WM_GET_FOCUSED_WINDOW:
+            result = sys_wm_get_focused_window();
+            break;
+            
+        case SYS_WM_SET_WINDOW_TITLE:
+            result = sys_wm_set_window_title((uint32_t)frame->rdi, (const char*)frame->rsi);
+            break;
+            
+        case SYS_WM_BRING_TO_FRONT:
+            result = sys_wm_bring_to_front((uint32_t)frame->rdi);
+            break;
+            
+        case SYS_WM_SEND_TO_BACK:
+            result = sys_wm_send_to_back((uint32_t)frame->rdi);
+            break;
+            
+        case SYS_WM_SET_WINDOW_STATE:
+            result = sys_wm_set_window_state((uint32_t)frame->rdi, (wm_window_state_t)frame->rsi);
+            break;
+            
+        case SYS_WM_GET_STATISTICS:
+            result = sys_wm_get_statistics((wm_statistics_t*)frame->rdi);
             break;
             
         default:

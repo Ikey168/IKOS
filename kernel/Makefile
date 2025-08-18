@@ -100,6 +100,9 @@ gui-system: $(C_OBJECTS) $(ASM_OBJECTS)
 # User Input Handling System components (Issue #38)
 input-system: $(C_OBJECTS) $(ASM_OBJECTS)
 
+# Window Manager System components (Issue #39)
+window-manager: $(C_OBJECTS) $(ASM_OBJECTS)
+
 # Advanced Memory Management simple test (Issue #27)
 simple_memory_test: $(BUILDDIR)/simple_memory_test
 
