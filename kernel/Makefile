@@ -34,7 +34,8 @@ C_SOURCES = scheduler.c interrupts.c scheduler_test.c kalloc.c kalloc_test.c use
             daemon_core.c daemon_service_registry.c daemon_ipc.c daemon_config.c \
             terminal.c terminal_escape.c terminal_extended.c \
             gui.c gui_widgets.c gui_render.c gui_utils.c gui_test.c \
-            input_manager.c input_events.c input_keyboard.c input_mouse.c input_api.c
+            input_manager.c input_events.c input_keyboard.c input_mouse.c input_api.c \
+            app_loader.c app_loader_test.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 
