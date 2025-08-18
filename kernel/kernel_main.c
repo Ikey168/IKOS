@@ -14,7 +14,25 @@
 #include "../include/framebuffer_test.h"
 #include "../include/process.h"
 #include "../include/user_app_loader.h"
+#include "../include/app_loader.h"
 #include <stdint.h>
+
+/* Function declarations */
+void kernel_init(void);
+void kernel_loop(void);
+void show_help(void);
+void show_statistics(void);
+void show_timer_info(void);
+void show_device_info(void);
+void show_framebuffer_info(void);
+void show_app_loader_info(void);
+void kernel_print(const char* format, ...);
+void outb(uint16_t port, uint8_t value);
+uint8_t inb(uint16_t port);
+void reboot_system(void);
+
+/* External function declarations */
+extern void test_app_loader_basic(void);
 
 /* Kernel entry point called from bootloader */
 void kernel_main(void) {
@@ -70,6 +88,14 @@ void kernel_init(void) {
     process_init();
     app_loader_init();
     
+    /* Initialize Unified Application Loader - Issue #40 */
+    kernel_print("Initializing Unified Application Loader...\n");
+    if (app_loader_init(NULL) == APP_ERROR_SUCCESS) {
+        kernel_print("Application Loader initialized successfully\n");
+    } else {
+        kernel_print("Failed to initialize Application Loader\n");
+    }
+    
     /* vfs_init(); */
     
     kernel_print("IKOS kernel initialized successfully\n");
@@ -118,6 +144,12 @@ void kernel_loop(void) {
                     case 'f':
                         show_framebuffer_info();
                         break;
+                    case 'a':
+                        show_app_loader_info();
+                        break;
+                    case 'l':
+                        test_app_loader_basic();
+                        break;
                     case 'r':
                         kernel_print("Rebooting system...\n");
                         reboot_system();
@@ -148,6 +180,8 @@ void show_help(void) {
     kernel_print("t - Show timer information\n");
     kernel_print("d - Show device driver framework info\n");
     kernel_print("f - Show framebuffer driver info\n");
+    kernel_print("a - Show application loader info\n");
+    kernel_print("l - Test application loader\n");
     kernel_print("r - Reboot system\n");
     kernel_print("\n");
 }
@@ -298,6 +332,28 @@ void memory_init(void) {
     init_user_space_execution();
     
     kernel_print("Memory management initialized\n");
+}
+
+/**
+ * Show application loader information
+ */
+void show_app_loader_info(void) {
+    kernel_print("\nApplication Loader Information:\n");
+    
+    app_loader_stats_t stats;
+    if (app_loader_get_stats(&stats) == APP_ERROR_SUCCESS) {
+        kernel_print("Registry size: %u\n", stats.registry_size);
+        kernel_print("Apps loaded: %u\n", stats.apps_loaded);
+        kernel_print("Apps running: %u\n", stats.apps_running);
+        kernel_print("Apps terminated: %u\n", stats.apps_terminated);
+        kernel_print("Launch failures: %u\n", stats.launch_failures);
+        kernel_print("GUI apps active: %u\n", stats.gui_apps_active);
+        kernel_print("CLI apps active: %u\n", stats.cli_apps_active);
+        kernel_print("Total memory used: %u bytes\n", stats.total_memory_used);
+    } else {
+        kernel_print("Failed to get application loader statistics\n");
+    }
+    kernel_print("\n");
 }
 
 /**
