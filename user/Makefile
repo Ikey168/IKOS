@@ -23,10 +23,14 @@ CLI_OBJECTS = $(CLI_SOURCES:.c=.o)
 SOCKET_SOURCES = socket_user_api.c socket_examples.c socket_test.c
 SOCKET_OBJECTS = $(SOCKET_SOURCES:.c=.o)
 
+# Threading API Source files - Issue #52
+THREADING_SOURCES = pthread.c threading_examples.c threading_test.c
+THREADING_OBJECTS = $(THREADING_SOURCES:.c=.o)
+
 # Test and example sources
-TEST_SOURCES = fs_test.c cli_shell_test.c socket_test.c
-EXAMPLE_SOURCES = file_manager_example.c simple_editor.c socket_examples.c
-ALL_SOURCES = $(IPC_SOURCES) $(FS_SOURCES) $(CLI_SOURCES) $(SOCKET_SOURCES) $(TEST_SOURCES) $(EXAMPLE_SOURCES)
+TEST_SOURCES = fs_test.c cli_shell_test.c socket_test.c threading_test.c
+EXAMPLE_SOURCES = file_manager_example.c simple_editor.c socket_examples.c threading_examples.c
+ALL_SOURCES = $(IPC_SOURCES) $(FS_SOURCES) $(CLI_SOURCES) $(SOCKET_SOURCES) $(THREADING_SOURCES) $(TEST_SOURCES) $(EXAMPLE_SOURCES)
 ALL_OBJECTS = $(ALL_SOURCES:.c=.o)
 
 # Targets
@@ -34,6 +38,7 @@ IPC_EXAMPLE = ipc_example
 IPC_LIBRARY = libipc_user.a
 FS_LIBRARY = libfs_user.a
 SOCKET_LIBRARY = libsocket_user.a
+THREADING_LIBRARY = libpthread_user.a
 FS_TEST = fs_test
 FILE_MANAGER = file_manager
 SIMPLE_EDITOR = simple_editor
@@ -42,10 +47,12 @@ CLI_TEST = cli_shell_test
 CLI_STANDALONE = ikos_cli_standalone
 SOCKET_EXAMPLES = socket_examples
 SOCKET_TEST = socket_test
+THREADING_EXAMPLES = threading_examples
+THREADING_TEST = threading_test
 
-.PHONY: all clean ipc fs cli sockets examples test help install
+.PHONY: all clean ipc fs cli sockets threading examples test help install
 
-all: ipc fs cli sockets examples
+all: ipc fs cli sockets threading examples
 
 ipc: $(IPC_EXAMPLE) $(IPC_LIBRARY)
 
@@ -54,6 +61,8 @@ fs: $(FS_LIBRARY)
 cli: $(CLI_SHELL) $(CLI_STANDALONE)
 
 sockets: $(SOCKET_LIBRARY) $(SOCKET_EXAMPLES)
+
+threading: $(THREADING_LIBRARY) $(THREADING_EXAMPLES) $(THREADING_TEST)
 
 examples: $(FILE_MANAGER) $(SIMPLE_EDITOR) $(SOCKET_EXAMPLES)
 
@@ -118,16 +127,20 @@ $(CLI_TEST): cli_shell_test.o ikos_cli_shell.o fs_user_api.o
 # Clean target
 clean:
 	rm -f $(ALL_OBJECTS) ipc_syscall_stubs.o
-	rm -f $(IPC_EXAMPLE) $(IPC_LIBRARY) $(FS_LIBRARY)
+	rm -f $(IPC_EXAMPLE) $(IPC_LIBRARY) $(FS_LIBRARY) $(SOCKET_LIBRARY) $(THREADING_LIBRARY)
 	rm -f $(FS_TEST) $(FILE_MANAGER) $(SIMPLE_EDITOR)
+	rm -f $(SOCKET_EXAMPLES) $(SOCKET_TEST)
+	rm -f $(THREADING_EXAMPLES) $(THREADING_TEST)
 
 # Install target
-install: $(IPC_LIBRARY) $(FS_LIBRARY)
+install: $(IPC_LIBRARY) $(FS_LIBRARY) $(SOCKET_LIBRARY) $(THREADING_LIBRARY)
 	@mkdir -p ../lib ../include
-	cp $(IPC_LIBRARY) $(FS_LIBRARY) ../lib/
+	cp $(IPC_LIBRARY) $(FS_LIBRARY) $(SOCKET_LIBRARY) $(THREADING_LIBRARY) ../lib/
 	cp ipc_user_api.h ../include/
 	cp fs_user_api.h ../include/ 2>/dev/null || true
 	cp fs_commands.h ../include/ 2>/dev/null || true
+	cp socket_user_api.h ../include/ 2>/dev/null || true
+	cp ../include/pthread.h ../include/ 2>/dev/null || true
 
 # Test targets for IPC
 test-ipc-server: $(IPC_EXAMPLE)
@@ -165,6 +178,24 @@ demo-socket-test: $(SOCKET_TEST)
 	@echo "Running Socket API tests..."
 	./$(SOCKET_TEST)
 
+# Threading API targets - Issue #52
+$(THREADING_LIBRARY): pthread.o
+	ar rcs $@ $^
+
+$(THREADING_EXAMPLES): threading_examples.o pthread.o
+	$(CC) $(LDFLAGS) -o $@ $^
+
+$(THREADING_TEST): threading_test.o pthread.o
+	$(CC) $(LDFLAGS) -o $@ $^
+
+demo-threading-examples: $(THREADING_EXAMPLES)
+	@echo "Starting Threading API examples..."
+	./$(THREADING_EXAMPLES)
+
+demo-threading-test: $(THREADING_TEST)
+	@echo "Running Threading API tests..."
+	./$(THREADING_TEST)
+
 demo-file-manager: $(FILE_MANAGER)
 	@echo "Starting File Manager demo..."
 	./$(FILE_MANAGER)
@@ -181,6 +212,9 @@ fs_commands.o: fs_commands.c fs_commands.h fs_user_api.h
 socket_user_api.o: socket_user_api.c socket_user_api.h
 socket_examples.o: socket_examples.c socket_user_api.h
 socket_test.o: socket_test.c socket_user_api.h
+pthread.o: pthread.c ../include/pthread.h ../include/thread_syscalls.h
+threading_examples.o: threading_examples.c ../include/pthread.h
+threading_test.o: threading_test.c ../include/pthread.h
 fs_test.o: fs_test.c fs_user_api.h fs_commands.h
 file_manager_example.o: file_manager_example.c fs_user_api.h fs_commands.h
 simple_editor.o: simple_editor.c fs_user_api.h

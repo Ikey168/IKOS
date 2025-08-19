@@ -32,6 +32,80 @@
 #define SYS_GETSOCKNAME         712
 #define SYS_GETPEERNAME         713
 
+/* Threading and concurrency syscalls (Issue #52) */
+#define SYS_THREAD_CREATE       720
+#define SYS_THREAD_EXIT         721
+#define SYS_THREAD_JOIN         722
+#define SYS_THREAD_DETACH       723
+#define SYS_THREAD_SELF         724
+#define SYS_THREAD_YIELD        725
+#define SYS_THREAD_SLEEP        726
+#define SYS_THREAD_CANCEL       727
+#define SYS_THREAD_KILL         728
+#define SYS_THREAD_SETNAME      729
+
+#define SYS_MUTEX_INIT          730
+#define SYS_MUTEX_DESTROY       731
+#define SYS_MUTEX_LOCK          732
+#define SYS_MUTEX_TRYLOCK       733
+#define SYS_MUTEX_UNLOCK        734
+#define SYS_MUTEX_TIMEDLOCK     735
+
+#define SYS_COND_INIT           740
+#define SYS_COND_DESTROY        741
+#define SYS_COND_WAIT           742
+#define SYS_COND_TIMEDWAIT      743
+#define SYS_COND_SIGNAL         744
+#define SYS_COND_BROADCAST      745
+
+#define SYS_SEM_INIT            750
+#define SYS_SEM_DESTROY         751
+#define SYS_SEM_WAIT            752
+#define SYS_SEM_TRYWAIT         753
+#define SYS_SEM_POST            754
+#define SYS_SEM_GETVALUE        755
+#define SYS_SEM_TIMEDWAIT       756
+
+#define SYS_RWLOCK_INIT         760
+#define SYS_RWLOCK_DESTROY      761
+#define SYS_RWLOCK_RDLOCK       762
+#define SYS_RWLOCK_WRLOCK       763
+#define SYS_RWLOCK_UNLOCK       764
+#define SYS_RWLOCK_TRYRDLOCK    765
+#define SYS_RWLOCK_TRYWRLOCK    766
+
+#define SYS_BARRIER_INIT        770
+#define SYS_BARRIER_DESTROY     771
+#define SYS_BARRIER_WAIT        772
+
+#define SYS_SPINLOCK_INIT       780
+#define SYS_SPINLOCK_DESTROY    781
+#define SYS_SPINLOCK_LOCK       782
+#define SYS_SPINLOCK_TRYLOCK    783
+#define SYS_SPINLOCK_UNLOCK     784
+
+#define SYS_TLS_CREATE_KEY      790
+#define SYS_TLS_DELETE_KEY      791
+#define SYS_TLS_GET_VALUE       792
+#define SYS_TLS_SET_VALUE       793
+
+#define SYS_THREAD_STATS        800
+#define SYS_THREAD_LIST         801
+#define SYS_THREAD_INFO         802
+
+/* Threading error codes */
+#define THREAD_SUCCESS          0
+#define THREAD_ERROR           -1
+#define THREAD_EAGAIN          -11
+#define THREAD_EINVAL          -22
+#define THREAD_EPERM           -1
+#define THREAD_ESRCH           -3
+#define THREAD_EDEADLK         -35
+#define THREAD_ENOMEM          -12
+#define THREAD_EBUSY           -16
+#define THREAD_ETIMEDOUT       -110
+#define THREAD_ENOTSUP         -95
+
 /* Socket error codes */
 #define SOCKET_SUCCESS          0
 #define SOCKET_ERROR           -1
