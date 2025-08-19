@@ -31,10 +31,14 @@ THREADING_OBJECTS = $(THREADING_SOURCES:.c=.o)
 DNS_SOURCES = dns_user_api.c dns_examples.c dns_test.c
 DNS_OBJECTS = $(DNS_SOURCES:.c=.o)
 
+# TLS/SSL API Source files - Issue #48
+TLS_SOURCES = tls_user_api.c tls_examples.c
+TLS_OBJECTS = $(TLS_SOURCES:.c=.o)
+
 # Test and example sources
 TEST_SOURCES = fs_test.c cli_shell_test.c socket_test.c threading_test.c dns_test.c
-EXAMPLE_SOURCES = file_manager_example.c simple_editor.c socket_examples.c threading_examples.c dns_examples.c
-ALL_SOURCES = $(IPC_SOURCES) $(FS_SOURCES) $(CLI_SOURCES) $(SOCKET_SOURCES) $(THREADING_SOURCES) $(DNS_SOURCES) $(TEST_SOURCES) $(EXAMPLE_SOURCES)
+EXAMPLE_SOURCES = file_manager_example.c simple_editor.c socket_examples.c threading_examples.c dns_examples.c tls_examples.c
+ALL_SOURCES = $(IPC_SOURCES) $(FS_SOURCES) $(CLI_SOURCES) $(SOCKET_SOURCES) $(THREADING_SOURCES) $(DNS_SOURCES) $(TLS_SOURCES) $(TEST_SOURCES) $(EXAMPLE_SOURCES)
 ALL_OBJECTS = $(ALL_SOURCES:.c=.o)
 
 # Targets
@@ -44,6 +48,7 @@ FS_LIBRARY = libfs_user.a
 SOCKET_LIBRARY = libsocket_user.a
 THREADING_LIBRARY = libpthread_user.a
 DNS_LIBRARY = libdns_user.a
+TLS_LIBRARY = libtls_user.a
 FS_TEST = fs_test
 FILE_MANAGER = file_manager
 SIMPLE_EDITOR = simple_editor
@@ -55,11 +60,12 @@ SOCKET_TEST = socket_test
 THREADING_EXAMPLES = threading_examples
 DNS_EXAMPLES = dns_examples
 DNS_TEST = dns_test
+TLS_EXAMPLES = tls_examples
 THREADING_TEST = threading_test
 
-.PHONY: all clean ipc fs cli sockets threading examples test help install
+.PHONY: all clean ipc fs cli sockets threading tls examples test help install
 
-all: ipc fs cli sockets threading examples
+all: ipc fs cli sockets threading tls examples
 
 ipc: $(IPC_EXAMPLE) $(IPC_LIBRARY)
 
@@ -70,6 +76,8 @@ cli: $(CLI_SHELL) $(CLI_STANDALONE)
 sockets: $(SOCKET_LIBRARY) $(SOCKET_EXAMPLES)
 
 threading: $(THREADING_LIBRARY) $(THREADING_EXAMPLES) $(THREADING_TEST)
+
+tls: $(TLS_LIBRARY) $(TLS_EXAMPLES)
 
 examples: $(FILE_MANAGER) $(SIMPLE_EDITOR) $(SOCKET_EXAMPLES)
 

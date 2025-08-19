@@ -107,6 +107,29 @@
 #define SYS_DNS_GET_STATS           820
 #define SYS_DNS_RESET_STATS         821
 
+/* TLS/SSL Secure Communication syscalls (Issue #48) */
+#define SYS_TLS_INIT                830
+#define SYS_TLS_CLEANUP             831
+#define SYS_TLS_CLIENT_CONNECT      832
+#define SYS_TLS_SERVER_CREATE       833
+#define SYS_TLS_SERVER_ACCEPT       834
+#define SYS_TLS_SEND                835
+#define SYS_TLS_RECV                836
+#define SYS_TLS_CLOSE               837
+#define SYS_TLS_SHUTDOWN            838
+#define SYS_TLS_HANDSHAKE           839
+#define SYS_TLS_SET_CONFIG          840
+#define SYS_TLS_GET_CONFIG          841
+#define SYS_TLS_GET_CONNECTION_INFO 842
+#define SYS_TLS_GET_PEER_CERT_INFO  843
+#define SYS_TLS_VERIFY_CERTIFICATE  844
+#define SYS_TLS_SET_CERTIFICATE     845
+#define SYS_TLS_ADD_CA_CERT         846
+#define SYS_TLS_SESSION_SAVE        847
+#define SYS_TLS_SESSION_RESUME      848
+#define SYS_TLS_GET_STATISTICS      849
+#define SYS_TLS_RESET_STATISTICS    850
+
 /* Threading error codes */
 #define THREAD_SUCCESS          0
 #define THREAD_ERROR           -1
@@ -122,6 +145,19 @@
 #define DNS_NO_SERVER          -5
 #define DNS_CACHE_MISS         -6
 #define DNS_BUFFER_TOO_SMALL   -7
+
+/* TLS error codes */
+#define TLS_SUCCESS                     0
+#define TLS_ERROR                      -1
+#define TLS_INVALID_PARAMETER          -2
+#define TLS_OUT_OF_MEMORY              -3
+#define TLS_SOCKET_ERROR               -4
+#define TLS_HANDSHAKE_FAILED           -5
+#define TLS_CERTIFICATE_ERROR          -6
+#define TLS_TIMEOUT                    -7
+#define TLS_CONNECTION_CLOSED          -8
+#define TLS_BUFFER_TOO_SMALL           -9
+#define TLS_NOT_INITIALIZED           -10
 #define THREAD_EPERM           -1
 #define THREAD_ESRCH           -3
 #define THREAD_EDEADLK         -35

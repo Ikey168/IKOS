@@ -22,6 +22,7 @@
 #include "../include/socket_syscalls.h"
 #include "../include/thread_syscalls.h"
 #include "../include/net/dns.h"
+#include "../include/net/tls.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -184,6 +185,14 @@ void kernel_init(void) {
         kernel_print("DNS Resolution Service initialized successfully\n");
     } else {
         kernel_print("Failed to initialize DNS Resolution Service\n");
+    }
+    
+    /* Initialize TLS/SSL Secure Communication - Issue #48 */
+    kernel_print("Initializing TLS/SSL Secure Communication...\n");
+    if (tls_init() == TLS_SUCCESS) {
+        kernel_print("TLS/SSL Secure Communication initialized successfully\n");
+    } else {
+        kernel_print("Failed to initialize TLS/SSL Secure Communication\n");
     }
     
     /* vfs_init(); */
