@@ -21,6 +21,7 @@
 #include "../include/network_driver.h"
 #include "../include/socket_syscalls.h"
 #include "../include/thread_syscalls.h"
+#include "../include/net/dns.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -175,6 +176,14 @@ void kernel_init(void) {
         kernel_print("Threading System initialized successfully\n");
     } else {
         kernel_print("Failed to initialize Threading System\n");
+    }
+    
+    /* Initialize DNS Resolution Service - Issue #47 */
+    kernel_print("Initializing DNS Resolution Service...\n");
+    if (dns_kernel_init() == DNS_SUCCESS) {
+        kernel_print("DNS Resolution Service initialized successfully\n");
+    } else {
+        kernel_print("Failed to initialize DNS Resolution Service\n");
     }
     
     /* vfs_init(); */

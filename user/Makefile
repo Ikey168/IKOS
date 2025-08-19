@@ -27,10 +27,14 @@ SOCKET_OBJECTS = $(SOCKET_SOURCES:.c=.o)
 THREADING_SOURCES = pthread.c threading_examples.c threading_test.c
 THREADING_OBJECTS = $(THREADING_SOURCES:.c=.o)
 
+# DNS API Source files - Issue #47
+DNS_SOURCES = dns_user_api.c dns_examples.c dns_test.c
+DNS_OBJECTS = $(DNS_SOURCES:.c=.o)
+
 # Test and example sources
-TEST_SOURCES = fs_test.c cli_shell_test.c socket_test.c threading_test.c
-EXAMPLE_SOURCES = file_manager_example.c simple_editor.c socket_examples.c threading_examples.c
-ALL_SOURCES = $(IPC_SOURCES) $(FS_SOURCES) $(CLI_SOURCES) $(SOCKET_SOURCES) $(THREADING_SOURCES) $(TEST_SOURCES) $(EXAMPLE_SOURCES)
+TEST_SOURCES = fs_test.c cli_shell_test.c socket_test.c threading_test.c dns_test.c
+EXAMPLE_SOURCES = file_manager_example.c simple_editor.c socket_examples.c threading_examples.c dns_examples.c
+ALL_SOURCES = $(IPC_SOURCES) $(FS_SOURCES) $(CLI_SOURCES) $(SOCKET_SOURCES) $(THREADING_SOURCES) $(DNS_SOURCES) $(TEST_SOURCES) $(EXAMPLE_SOURCES)
 ALL_OBJECTS = $(ALL_SOURCES:.c=.o)
 
 # Targets
@@ -39,6 +43,7 @@ IPC_LIBRARY = libipc_user.a
 FS_LIBRARY = libfs_user.a
 SOCKET_LIBRARY = libsocket_user.a
 THREADING_LIBRARY = libpthread_user.a
+DNS_LIBRARY = libdns_user.a
 FS_TEST = fs_test
 FILE_MANAGER = file_manager
 SIMPLE_EDITOR = simple_editor
@@ -48,6 +53,8 @@ CLI_STANDALONE = ikos_cli_standalone
 SOCKET_EXAMPLES = socket_examples
 SOCKET_TEST = socket_test
 THREADING_EXAMPLES = threading_examples
+DNS_EXAMPLES = dns_examples
+DNS_TEST = dns_test
 THREADING_TEST = threading_test
 
 .PHONY: all clean ipc fs cli sockets threading examples test help install
