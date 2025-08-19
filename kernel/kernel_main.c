@@ -23,6 +23,8 @@
 #include "../include/thread_syscalls.h"
 #include "../include/net/dns.h"
 #include "../include/net/tls.h"
+#include "../include/ext2.h"
+#include "../include/ext2_syscalls.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -193,6 +195,14 @@ void kernel_init(void) {
         kernel_print("TLS/SSL Secure Communication initialized successfully\n");
     } else {
         kernel_print("Failed to initialize TLS/SSL Secure Communication\n");
+    }
+    
+    /* Initialize ext2/ext4 Filesystem Support - Issue #49 */
+    kernel_print("Initializing ext2/ext4 Filesystem Support...\n");
+    if (ext2_init() == EXT2_SUCCESS) {
+        kernel_print("ext2/ext4 Filesystem Support initialized successfully\n");
+    } else {
+        kernel_print("Failed to initialize ext2/ext4 Filesystem Support\n");
     }
     
     /* vfs_init(); */
