@@ -8,21 +8,50 @@
 #include <stdint.h>
 #include "interrupts.h"
 
-/* System call numbers */
-#define SYS_EXIT        60
-#define SYS_WRITE       1
-#define SYS_READ        0
-#define SYS_OPEN        2
-#define SYS_CLOSE       3
-#define SYS_FORK        57
-#define SYS_EXECVE      59
-#define SYS_GETPID      39
-#define SYS_GETPPID     110
-#define SYS_WAIT        61
-#define SYS_WAITPID     247
-#define SYS_KILL        62
+/* Framebuffer syscalls */
+#define SYS_FB_GET_INFO         600
+#define SYS_FB_SET_PIXEL        601
+#define SYS_FB_FILL_RECT        602
+#define SYS_FB_COPY_RECT        603
+#define SYS_FB_DRAW_LINE        604
+#define SYS_FB_CLEAR_SCREEN     605
 
-/* Keyboard syscalls */
+/* Socket API syscalls (Issue #46) */
+#define SYS_SOCKET              700
+#define SYS_BIND                701
+#define SYS_LISTEN              702
+#define SYS_ACCEPT              703
+#define SYS_CONNECT             704
+#define SYS_SEND                705
+#define SYS_RECV                706
+#define SYS_SENDTO              707
+#define SYS_RECVFROM            708
+#define SYS_SHUTDOWN            709
+#define SYS_SETSOCKOPT          710
+#define SYS_GETSOCKOPT          711
+#define SYS_GETSOCKNAME         712
+#define SYS_GETPEERNAME         713
+
+/* Socket error codes */
+#define SOCKET_SUCCESS          0
+#define SOCKET_ERROR           -1
+#define SOCKET_EBADF           -9      /* Bad file descriptor */
+#define SOCKET_ENOTSOCK        -88     /* Socket operation on non-socket */
+#define SOCKET_EADDRINUSE      -98     /* Address already in use */
+#define SOCKET_EADDRNOTAVAIL   -99     /* Cannot assign requested address */
+#define SOCKET_ENETDOWN        -100    /* Network is down */
+#define SOCKET_ENETUNREACH     -101    /* Network is unreachable */
+#define SOCKET_ECONNABORTED    -103    /* Software caused connection abort */
+#define SOCKET_ECONNRESET      -104    /* Connection reset by peer */
+#define SOCKET_ENOBUFS         -105    /* No buffer space available */
+#define SOCKET_EISCONN         -106    /* Transport endpoint is already connected */
+#define SOCKET_ENOTCONN        -107    /* Transport endpoint is not connected */
+#define SOCKET_ETIMEDOUT       -110    /* Connection timed out */
+#define SOCKET_ECONNREFUSED    -111    /* Connection refused */
+#define SOCKET_EAGAIN          -11     /* Try again */
+#define SOCKET_EINPROGRESS     -115    /* Operation now in progress */
+
+/* System call handler type */
 #define SYS_KEYBOARD_READ     140
 #define SYS_KEYBOARD_POLL     141
 #define SYS_KEYBOARD_IOCTL    142

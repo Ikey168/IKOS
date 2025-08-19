@@ -19,26 +19,33 @@ FS_OBJECTS = $(FS_SOURCES:.c=.o)
 CLI_SOURCES = ikos_cli_shell.c simple_shell.c ikos_cli_standalone.c
 CLI_OBJECTS = $(CLI_SOURCES:.c=.o)
 
+# Socket API Source files - Issue #46
+SOCKET_SOURCES = socket_user_api.c socket_examples.c socket_test.c
+SOCKET_OBJECTS = $(SOCKET_SOURCES:.c=.o)
+
 # Test and example sources
-TEST_SOURCES = fs_test.c cli_shell_test.c
-EXAMPLE_SOURCES = file_manager_example.c simple_editor.c
-ALL_SOURCES = $(IPC_SOURCES) $(FS_SOURCES) $(CLI_SOURCES) $(TEST_SOURCES) $(EXAMPLE_SOURCES)
+TEST_SOURCES = fs_test.c cli_shell_test.c socket_test.c
+EXAMPLE_SOURCES = file_manager_example.c simple_editor.c socket_examples.c
+ALL_SOURCES = $(IPC_SOURCES) $(FS_SOURCES) $(CLI_SOURCES) $(SOCKET_SOURCES) $(TEST_SOURCES) $(EXAMPLE_SOURCES)
 ALL_OBJECTS = $(ALL_SOURCES:.c=.o)
 
 # Targets
 IPC_EXAMPLE = ipc_example
 IPC_LIBRARY = libipc_user.a
 FS_LIBRARY = libfs_user.a
+SOCKET_LIBRARY = libsocket_user.a
 FS_TEST = fs_test
 FILE_MANAGER = file_manager
 SIMPLE_EDITOR = simple_editor
 CLI_SHELL = ikos_cli_shell
 CLI_TEST = cli_shell_test
 CLI_STANDALONE = ikos_cli_standalone
+SOCKET_EXAMPLES = socket_examples
+SOCKET_TEST = socket_test
 
-.PHONY: all clean ipc fs cli examples test help install
+.PHONY: all clean ipc fs cli sockets examples test help install
 
-all: ipc fs cli examples
+all: ipc fs cli sockets examples
 
 ipc: $(IPC_EXAMPLE) $(IPC_LIBRARY)
 
@@ -46,9 +53,11 @@ fs: $(FS_LIBRARY)
 
 cli: $(CLI_SHELL) $(CLI_STANDALONE)
 
-examples: $(FILE_MANAGER) $(SIMPLE_EDITOR)
+sockets: $(SOCKET_LIBRARY) $(SOCKET_EXAMPLES)
 
-test: $(FS_TEST) $(CLI_TEST)
+examples: $(FILE_MANAGER) $(SIMPLE_EDITOR) $(SOCKET_EXAMPLES)
+
+test: $(FS_TEST) $(CLI_TEST) $(SOCKET_TEST)
 
 help:
 	@echo "IKOS User-Space Build System"
@@ -138,6 +147,24 @@ test-fs: $(FS_TEST)
 	@echo "Running filesystem API tests..."
 	./$(FS_TEST)
 
+# Socket API targets - Issue #46
+$(SOCKET_LIBRARY): socket_user_api.o
+	ar rcs $@ $^
+
+$(SOCKET_EXAMPLES): socket_examples.o socket_user_api.o
+	$(CC) $(LDFLAGS) -o $@ $^
+
+$(SOCKET_TEST): socket_test.o socket_user_api.o
+	$(CC) $(LDFLAGS) -o $@ $^
+
+demo-socket-examples: $(SOCKET_EXAMPLES)
+	@echo "Starting Socket API examples..."
+	./$(SOCKET_EXAMPLES)
+
+demo-socket-test: $(SOCKET_TEST)
+	@echo "Running Socket API tests..."
+	./$(SOCKET_TEST)
+
 demo-file-manager: $(FILE_MANAGER)
 	@echo "Starting File Manager demo..."
 	./$(FILE_MANAGER)
@@ -151,6 +178,9 @@ ipc_example.o: ipc_example.c ipc_user_api.h
 ipc_user_api.o: ipc_user_api.c ipc_user_api.h
 fs_user_api.o: fs_user_api.c fs_user_api.h
 fs_commands.o: fs_commands.c fs_commands.h fs_user_api.h
+socket_user_api.o: socket_user_api.c socket_user_api.h
+socket_examples.o: socket_examples.c socket_user_api.h
+socket_test.o: socket_test.c socket_user_api.h
 fs_test.o: fs_test.c fs_user_api.h fs_commands.h
 file_manager_example.o: file_manager_example.c fs_user_api.h fs_commands.h
 simple_editor.o: simple_editor.c fs_user_api.h

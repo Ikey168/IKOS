@@ -19,6 +19,7 @@
 #include "../include/notifications.h"
 #include "../include/terminal_gui.h"
 #include "../include/network_driver.h"
+#include "../include/socket_syscalls.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -33,6 +34,7 @@ void show_app_loader_info(void);
 void show_notification_info(void);
 void show_terminal_gui_info(void);
 void show_network_info(void);
+void show_socket_info(void);
 void kernel_print(const char* format, ...);
 void outb(uint16_t port, uint8_t value);
 uint8_t inb(uint16_t port);
@@ -157,6 +159,14 @@ void kernel_init(void) {
         kernel_print("Failed to initialize Network Interface Driver\n");
     }
     
+    /* Initialize Socket API - Issue #46 */
+    kernel_print("Initializing Socket API...\n");
+    if (socket_syscalls_init() == SOCK_SUCCESS) {
+        kernel_print("Socket API initialized successfully\n");
+    } else {
+        kernel_print("Failed to initialize Socket API\n");
+    }
+    
     /* vfs_init(); */
     
     kernel_print("IKOS kernel initialized successfully\n");
@@ -244,6 +254,9 @@ void kernel_loop(void) {
                     case 'z':
                         network_driver_run_tests();
                         break;
+                    case 'x':
+                        show_socket_info();
+                        break;
                     case 'r':
                         kernel_print("Rebooting system...\n");
                         reboot_system();
@@ -287,6 +300,7 @@ void show_help(void) {
     kernel_print("w - Show network driver info\n");
     kernel_print("q - Test network driver integration\n");
     kernel_print("z - Run network driver tests\n");
+    kernel_print("x - Show socket API info\n");
     kernel_print("r - Reboot system\n");
     kernel_print("\n");
 }
@@ -587,4 +601,56 @@ void show_network_info(void) {
     }
     
     kernel_print("\nNetwork Interface Driver ready for use\n");
+}
+
+/**
+ * Show socket API information
+ */
+void show_socket_info(void) {
+    kernel_print("\n=== Socket API Information ===\n");
+    
+    /* Get socket system statistics */
+    socket_syscall_stats_t stats;
+    if (socket_get_syscall_stats(&stats) == SOCK_SUCCESS) {
+        kernel_print("\nSocket System Statistics:\n");
+        kernel_print("Active sockets: %u\n", stats.active_sockets);
+        kernel_print("Total sockets created: %u\n", stats.total_sockets_created);
+        kernel_print("Total sockets closed: %u\n", stats.total_sockets_closed);
+        kernel_print("Failed socket operations: %u\n", stats.failed_operations);
+        kernel_print("Total bytes sent: %lu\n", stats.total_bytes_sent);
+        kernel_print("Total bytes received: %lu\n", stats.total_bytes_received);
+        
+        /* Show socket type breakdown */
+        kernel_print("\nSocket Type Breakdown:\n");
+        kernel_print("TCP sockets: %u\n", stats.tcp_sockets);
+        kernel_print("UDP sockets: %u\n", stats.udp_sockets);
+        kernel_print("Raw sockets: %u\n", stats.raw_sockets);
+        
+        /* Show socket state information */
+        kernel_print("\nSocket States:\n");
+        kernel_print("Listening sockets: %u\n", stats.listening_sockets);
+        kernel_print("Connected sockets: %u\n", stats.connected_sockets);
+        kernel_print("Bound sockets: %u\n", stats.bound_sockets);
+    } else {
+        kernel_print("Failed to retrieve socket statistics\n");
+    }
+    
+    /* Show socket API configuration */
+    const socket_syscall_config_t* config = socket_get_syscall_config();
+    if (config) {
+        kernel_print("\nSocket API Configuration:\n");
+        kernel_print("Max sockets per process: %u\n", config->max_sockets_per_process);
+        kernel_print("Default send buffer size: %u bytes\n", config->default_send_buffer_size);
+        kernel_print("Default receive buffer size: %u bytes\n", config->default_recv_buffer_size);
+        kernel_print("Default socket timeout: %u ms\n", config->default_timeout_ms);
+        kernel_print("Non-blocking operations: %s\n", 
+                   config->enable_nonblocking ? "Enabled" : "Disabled");
+        kernel_print("Socket reuse: %s\n", 
+                   config->enable_reuseaddr ? "Enabled" : "Disabled");
+    }
+    
+    kernel_print("\nSocket API ready for use\n");
+    kernel_print("Berkeley-style socket interface available\n");
+    kernel_print("Supported operations: socket(), bind(), listen(), accept(), connect(), send(), recv()\n");
+    kernel_print("Non-blocking operations and address utilities included\n");
 }
