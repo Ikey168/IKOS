@@ -20,6 +20,7 @@
 #include "../include/terminal_gui.h"
 #include "../include/network_driver.h"
 #include "../include/socket_syscalls.h"
+#include "../include/thread_syscalls.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -35,6 +36,7 @@ void show_notification_info(void);
 void show_terminal_gui_info(void);
 void show_network_info(void);
 void show_socket_info(void);
+void show_threading_info(void);
 void kernel_print(const char* format, ...);
 void outb(uint16_t port, uint8_t value);
 uint8_t inb(uint16_t port);
@@ -167,6 +169,14 @@ void kernel_init(void) {
         kernel_print("Failed to initialize Socket API\n");
     }
     
+    /* Initialize Threading System - Issue #52 */
+    kernel_print("Initializing Threading System...\n");
+    if (thread_system_init() == THREAD_SUCCESS) {
+        kernel_print("Threading System initialized successfully\n");
+    } else {
+        kernel_print("Failed to initialize Threading System\n");
+    }
+    
     /* vfs_init(); */
     
     kernel_print("IKOS kernel initialized successfully\n");
@@ -257,6 +267,9 @@ void kernel_loop(void) {
                     case 'x':
                         show_socket_info();
                         break;
+                    case 'j':
+                        show_threading_info();
+                        break;
                     case 'r':
                         kernel_print("Rebooting system...\n");
                         reboot_system();
@@ -301,6 +314,7 @@ void show_help(void) {
     kernel_print("q - Test network driver integration\n");
     kernel_print("z - Run network driver tests\n");
     kernel_print("x - Show socket API info\n");
+    kernel_print("j - Show threading system info\n");
     kernel_print("r - Reboot system\n");
     kernel_print("\n");
 }
@@ -653,4 +667,63 @@ void show_socket_info(void) {
     kernel_print("Berkeley-style socket interface available\n");
     kernel_print("Supported operations: socket(), bind(), listen(), accept(), connect(), send(), recv()\n");
     kernel_print("Non-blocking operations and address utilities included\n");
+}
+
+/**
+ * Show threading system information - Issue #52
+ */
+void show_threading_info(void) {
+    kernel_print("\n=== Threading System Information ===\n");
+    
+    /* Get threading system statistics */
+    thread_syscall_stats_t stats;
+    if (thread_get_syscall_stats(&stats) == THREAD_SUCCESS) {
+        kernel_print("\nThreading System Statistics:\n");
+        kernel_print("Active threads: %u\n", stats.active_threads);
+        kernel_print("Total threads created: %u\n", stats.total_threads_created);
+        kernel_print("Total threads destroyed: %u\n", stats.total_threads_destroyed);
+        kernel_print("Context switches: %llu\n", stats.context_switches);
+        kernel_print("Failed thread creations: %u\n", stats.failed_thread_creations);
+        
+        /* Show synchronization object statistics */
+        kernel_print("\nSynchronization Objects:\n");
+        kernel_print("Active mutexes: %u\n", stats.active_mutexes);
+        kernel_print("Active condition variables: %u\n", stats.active_condition_variables);
+        kernel_print("Active semaphores: %u\n", stats.active_semaphores);
+        kernel_print("Active barriers: %u\n", stats.active_barriers);
+        kernel_print("Active spinlocks: %u\n", stats.active_spinlocks);
+        kernel_print("Active TLS keys: %u\n", stats.active_tls_keys);
+        
+        /* Show syscall statistics */
+        kernel_print("\nSyscall Statistics:\n");
+        kernel_print("Thread create calls: %u\n", stats.syscall_thread_create);
+        kernel_print("Thread join calls: %u\n", stats.syscall_thread_join);
+        kernel_print("Mutex lock calls: %u\n", stats.syscall_mutex_lock);
+        kernel_print("Mutex unlock calls: %u\n", stats.syscall_mutex_unlock);
+        kernel_print("Condition wait calls: %u\n", stats.syscall_cond_wait);
+        kernel_print("Condition signal calls: %u\n", stats.syscall_cond_signal);
+    } else {
+        kernel_print("Failed to retrieve threading statistics\n");
+    }
+    
+    /* Show threading system configuration */
+    const thread_syscall_config_t* config = thread_get_syscall_config();
+    if (config) {
+        kernel_print("\nThreading System Configuration:\n");
+        kernel_print("Max threads per process: %u\n", config->max_threads_per_process);
+        kernel_print("Default stack size: %u KB\n", config->default_stack_size / 1024);
+        kernel_print("Min stack size: %u KB\n", config->min_stack_size / 1024);
+        kernel_print("Max stack size: %u KB\n", config->max_stack_size / 1024);
+        kernel_print("Thread-local storage slots: %u\n", config->max_tls_keys);
+        kernel_print("Preemptive scheduling: %s\n", 
+                   config->enable_preemption ? "Enabled" : "Disabled");
+        kernel_print("Priority inheritance: %s\n", 
+                   config->enable_priority_inheritance ? "Enabled" : "Disabled");
+    }
+    
+    kernel_print("\nThreading API ready for use\n");
+    kernel_print("POSIX-style pthread interface available\n");
+    kernel_print("Supported operations: pthread_create(), pthread_join(), pthread_detach()\n");
+    kernel_print("Synchronization: mutexes, condition variables, semaphores, barriers, spinlocks\n");
+    kernel_print("Thread-local storage and comprehensive thread management included\n");
 }
