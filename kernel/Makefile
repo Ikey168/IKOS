@@ -43,7 +43,8 @@ C_SOURCES = scheduler.c interrupts.c scheduler_test.c kalloc.c kalloc_test.c use
             socket_syscalls.c thread_syscalls.c \
             net/dns.c dns_syscalls.c \
             net/tls.c tls_syscalls.c \
-            ext2.c ext2_syscalls.c
+            ext2.c ext2_syscalls.c \
+            usb.c usb_hid.c usb_uhci.c usb_control.c usb_syscalls.c usb_test.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 
@@ -79,8 +80,11 @@ ipc: $(C_OBJECTS) $(ASM_OBJECTS)
 # Device Driver Framework components (Issue #15)
 device-drivers: $(C_OBJECTS) $(ASM_OBJECTS)
 
-# USB Controller components (Issue #15 Enhancement)
+# USB Controller components (Issue #15 Enhancement & Issue #50)
 usb: $(C_OBJECTS) $(ASM_OBJECTS)
+
+# USB Driver Framework components (Issue #50)
+usb-framework: $(C_OBJECTS) $(ASM_OBJECTS)
 
 # Kernel Logging System components (Issue #16)
 logging: $(C_OBJECTS) $(ASM_OBJECTS)
@@ -148,7 +152,7 @@ $(BUILDDIR)/kernel.bin: $(C_OBJECTS) $(ASM_OBJECTS) kernel.ld
 	$(LD) $(LDFLAGS) -o $@ $(C_OBJECTS) $(ASM_OBJECTS)
 
 # Test targets
-test: test-scheduler test-ipc test-device-drivers test-usb test-logging test-process-termination test-signal-handling test-process-lifecycle test-daemon-system test-terminal-emulator test-input-system test-qemu
+test: test-scheduler test-ipc test-device-drivers test-usb test-usb-framework test-logging test-process-termination test-signal-handling test-process-lifecycle test-daemon-system test-terminal-emulator test-input-system test-qemu
 
 test-scheduler: scheduler
 	@echo "Building scheduler test..."
@@ -170,6 +174,11 @@ test-usb: usb
 	@echo "Building USB Controller test..."
 	@echo "USB Controller components built successfully"
 	@echo "Testing USB controller integration with device framework"
+
+test-usb-framework: usb-framework
+	@echo "Building USB Driver Framework test..."
+	@echo "USB Driver Framework components built successfully"
+	@echo "Testing USB host controller drivers, HID devices, device enumeration, and kernel/user-space integration"
 
 test-logging: logging
 	@echo "Building Kernel Logging System test..."
