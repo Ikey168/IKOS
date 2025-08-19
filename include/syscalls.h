@@ -146,6 +146,23 @@
 #define DNS_CACHE_MISS         -6
 #define DNS_BUFFER_TOO_SMALL   -7
 
+/* ext2/ext4 Filesystem syscalls (Issue #49) */
+#define SYS_EXT2_MOUNT                  860
+#define SYS_EXT2_UNMOUNT                861
+#define SYS_EXT2_FORMAT                 862
+#define SYS_EXT2_FSCK                   863
+#define SYS_EXT2_GET_INFO               864
+#define SYS_EXT2_SET_LABEL              865
+#define SYS_EXT2_GET_LABEL              866
+#define SYS_EXT2_RESIZE                 867
+#define SYS_EXT2_DEFRAG                 868
+#define SYS_EXT2_TUNE                   869
+#define SYS_EXT2_BACKUP_SUPER           870
+#define SYS_EXT2_RESTORE_SUPER          871
+#define SYS_EXT2_LIST_MOUNTS            872
+#define SYS_EXT2_GET_MOUNT_INFO         873
+#define SYS_EXT2_SET_MOUNT_OPTS         874
+
 /* TLS error codes */
 #define TLS_SUCCESS                     0
 #define TLS_ERROR                      -1
