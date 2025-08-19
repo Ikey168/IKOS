@@ -93,11 +93,35 @@
 #define SYS_THREAD_LIST         801
 #define SYS_THREAD_INFO         802
 
+/* DNS Resolution Service syscalls (Issue #47) */
+#define SYS_DNS_RESOLVE_HOSTNAME    810
+#define SYS_DNS_RESOLVE_IP          811
+#define SYS_DNS_SET_SERVERS         812
+#define SYS_DNS_GET_SERVERS         813
+#define SYS_DNS_CONFIGURE           814
+#define SYS_DNS_GET_CONFIG          815
+#define SYS_DNS_CACHE_LOOKUP        816
+#define SYS_DNS_CACHE_ADD           817
+#define SYS_DNS_CACHE_REMOVE        818
+#define SYS_DNS_CACHE_FLUSH         819
+#define SYS_DNS_GET_STATS           820
+#define SYS_DNS_RESET_STATS         821
+
 /* Threading error codes */
 #define THREAD_SUCCESS          0
 #define THREAD_ERROR           -1
 #define THREAD_EAGAIN          -11
 #define THREAD_EINVAL          -22
+
+/* DNS error codes */
+#define DNS_SUCCESS             0
+#define DNS_ERROR              -1
+#define DNS_INVALID_HOSTNAME   -2
+#define DNS_INVALID_IP         -3
+#define DNS_TIMEOUT            -4
+#define DNS_NO_SERVER          -5
+#define DNS_CACHE_MISS         -6
+#define DNS_BUFFER_TOO_SMALL   -7
 #define THREAD_EPERM           -1
 #define THREAD_ESRCH           -3
 #define THREAD_EDEADLK         -35

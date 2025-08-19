@@ -40,7 +40,8 @@ C_SOURCES = scheduler.c interrupts.c scheduler_test.c kalloc.c kalloc_test.c use
             notifications.c notifications_test.c \
             terminal_gui.c terminal_gui_test.c \
             network_driver.c ethernet_drivers.c wifi_drivers.c network_driver_test.c \
-            socket_syscalls.c thread_syscalls.c
+            socket_syscalls.c thread_syscalls.c \
+            net/dns.c dns_syscalls.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 
