@@ -17,6 +17,7 @@
 #include "../include/app_loader.h"
 #include "../include/file_explorer.h"
 #include "../include/notifications.h"
+#include "../include/terminal_gui.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -29,6 +30,7 @@ void show_device_info(void);
 void show_framebuffer_info(void);
 void show_app_loader_info(void);
 void show_notification_info(void);
+void show_terminal_gui_info(void);
 void kernel_print(const char* format, ...);
 void outb(uint16_t port, uint8_t value);
 uint8_t inb(uint16_t port);
@@ -39,6 +41,8 @@ extern void test_app_loader_basic(void);
 extern void file_explorer_test_basic_operations(void);
 extern void file_explorer_run_tests(void);
 extern void notification_test_basic(void);
+extern void terminal_gui_run_tests(void);
+extern void terminal_gui_test_basic_integration(void);
 
 /* Kernel entry point called from bootloader */
 void kernel_main(void) {
@@ -123,6 +127,22 @@ void kernel_init(void) {
         kernel_print("Failed to initialize Notification System\n");
     }
     
+    /* Initialize Terminal GUI Integration - Issue #43 */
+    kernel_print("Initializing Terminal GUI Integration...\n");
+    if (terminal_gui_init() == TERMINAL_GUI_SUCCESS) {
+        kernel_print("Terminal GUI Integration initialized successfully\n");
+    } else {
+        kernel_print("Failed to initialize Terminal GUI Integration\n");
+    }
+    
+    /* Initialize Terminal GUI Integration - Issue #43 */
+    kernel_print("Initializing Terminal GUI Integration...\n");
+    if (terminal_gui_init() == TERMINAL_GUI_SUCCESS) {
+        kernel_print("Terminal GUI Integration initialized successfully\n");
+    } else {
+        kernel_print("Failed to initialize Terminal GUI Integration\n");
+    }
+    
     /* vfs_init(); */
     
     kernel_print("IKOS kernel initialized successfully\n");
@@ -162,7 +182,7 @@ void kernel_loop(void) {
                     case 's':
                         show_statistics();
                         break;
-                    case 't':
+                    case 'i':
                         show_timer_info();
                         break;
                     case 'd':
@@ -192,6 +212,15 @@ void kernel_loop(void) {
                     case 'm':
                         notification_test_basic();
                         break;
+                    case 't':
+                        show_terminal_gui_info();
+                        break;
+                    case 'g':
+                        terminal_gui_test_basic_integration();
+                        break;
+                    case 'u':
+                        terminal_gui_run_tests();
+                        break;
                     case 'r':
                         kernel_print("Rebooting system...\n");
                         reboot_system();
@@ -219,7 +248,7 @@ void show_help(void) {
     kernel_print("\nIKOS Kernel Commands:\n");
     kernel_print("h - Show this help\n");
     kernel_print("s - Show interrupt statistics\n");
-    kernel_print("t - Show timer information\n");
+    kernel_print("i - Show timer information\n");
     kernel_print("d - Show device driver framework info\n");
     kernel_print("f - Show framebuffer driver info\n");
     kernel_print("a - Show application loader info\n");
@@ -229,6 +258,9 @@ void show_help(void) {
     kernel_print("o - Open file explorer window\n");
     kernel_print("n - Show notification system info\n");
     kernel_print("m - Test notification system\n");
+    kernel_print("t - Show terminal GUI info\n");
+    kernel_print("g - Test terminal GUI integration\n");
+    kernel_print("u - Run terminal GUI tests\n");
     kernel_print("r - Reboot system\n");
     kernel_print("\n");
 }
@@ -456,4 +488,38 @@ uint8_t inb(uint16_t port) {
     uint8_t ret;
     __asm__ volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port));
     return ret;
+}
+
+/**
+ * Show terminal GUI information
+ */
+void show_terminal_gui_info(void) {
+    kernel_print("\nTerminal GUI Integration Information:\n");
+    kernel_print("=====================================\n");
+    
+    // Get focused instance
+    terminal_gui_instance_t* focused = terminal_gui_get_focused_instance();
+    if (focused) {
+        kernel_print("Focused Terminal ID: %u\n", focused->id);
+        kernel_print("Focused Terminal Title: %s\n", focused->title);
+        kernel_print("Focused Terminal State: %d\n", focused->state);
+        kernel_print("Visible Columns: %u\n", focused->visible_cols);
+        kernel_print("Visible Rows: %u\n", focused->visible_rows);
+    } else {
+        kernel_print("No focused terminal instance\n");
+    }
+    
+    // Count active instances
+    uint32_t active_count = 0;
+    for (uint32_t i = 0; i < TERMINAL_GUI_MAX_INSTANCES; i++) {
+        // Note: This would need access to internal manager structure
+        // For now, just show general information
+    }
+    
+    kernel_print("Maximum Instances: %d\n", TERMINAL_GUI_MAX_INSTANCES);
+    kernel_print("Maximum Tabs per Instance: %d\n", TERMINAL_GUI_MAX_TABS);
+    kernel_print("Default Window Size: %dx%d\n", TERMINAL_GUI_DEFAULT_WIDTH, TERMINAL_GUI_DEFAULT_HEIGHT);
+    kernel_print("Character Cell Size: %dx%d\n", TERMINAL_GUI_CHAR_WIDTH, TERMINAL_GUI_CHAR_HEIGHT);
+    
+    kernel_print("\nTerminal GUI Integration ready for use\n");
 }
