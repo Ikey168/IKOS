@@ -18,6 +18,7 @@
 #include "../include/file_explorer.h"
 #include "../include/notifications.h"
 #include "../include/terminal_gui.h"
+#include "../include/network_driver.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -31,6 +32,7 @@ void show_framebuffer_info(void);
 void show_app_loader_info(void);
 void show_notification_info(void);
 void show_terminal_gui_info(void);
+void show_network_info(void);
 void kernel_print(const char* format, ...);
 void outb(uint16_t port, uint8_t value);
 uint8_t inb(uint16_t port);
@@ -43,6 +45,8 @@ extern void file_explorer_run_tests(void);
 extern void notification_test_basic(void);
 extern void terminal_gui_run_tests(void);
 extern void terminal_gui_test_basic_integration(void);
+extern void network_driver_run_tests(void);
+extern void network_driver_test_basic_integration(void);
 
 /* Kernel entry point called from bootloader */
 void kernel_main(void) {
@@ -135,12 +139,22 @@ void kernel_init(void) {
         kernel_print("Failed to initialize Terminal GUI Integration\n");
     }
     
-    /* Initialize Terminal GUI Integration - Issue #43 */
-    kernel_print("Initializing Terminal GUI Integration...\n");
-    if (terminal_gui_init() == TERMINAL_GUI_SUCCESS) {
-        kernel_print("Terminal GUI Integration initialized successfully\n");
+    /* Initialize Network Interface Driver - Issue #45 */
+    kernel_print("Initializing Network Interface Driver...\n");
+    if (network_driver_init() == NETWORK_SUCCESS) {
+        kernel_print("Network Interface Driver initialized successfully\n");
+        
+        /* Initialize hardware-specific drivers */
+        ethernet_driver_init();
+        wifi_driver_init();
+        
+        /* Detect available network interfaces */
+        int eth_count = ethernet_detect_interfaces();
+        int wifi_count = wifi_detect_interfaces();
+        
+        kernel_print("Detected %d Ethernet and %d Wi-Fi interfaces\n", eth_count, wifi_count);
     } else {
-        kernel_print("Failed to initialize Terminal GUI Integration\n");
+        kernel_print("Failed to initialize Network Interface Driver\n");
     }
     
     /* vfs_init(); */
@@ -221,6 +235,15 @@ void kernel_loop(void) {
                     case 'u':
                         terminal_gui_run_tests();
                         break;
+                    case 'w':
+                        show_network_info();
+                        break;
+                    case 'q':
+                        network_driver_test_basic_integration();
+                        break;
+                    case 'z':
+                        network_driver_run_tests();
+                        break;
                     case 'r':
                         kernel_print("Rebooting system...\n");
                         reboot_system();
@@ -261,6 +284,9 @@ void show_help(void) {
     kernel_print("t - Show terminal GUI info\n");
     kernel_print("g - Test terminal GUI integration\n");
     kernel_print("u - Run terminal GUI tests\n");
+    kernel_print("w - Show network driver info\n");
+    kernel_print("q - Test network driver integration\n");
+    kernel_print("z - Run network driver tests\n");
     kernel_print("r - Reboot system\n");
     kernel_print("\n");
 }
@@ -522,4 +548,43 @@ void show_terminal_gui_info(void) {
     kernel_print("Character Cell Size: %dx%d\n", TERMINAL_GUI_CHAR_WIDTH, TERMINAL_GUI_CHAR_HEIGHT);
     
     kernel_print("\nTerminal GUI Integration ready for use\n");
+}
+
+/**
+ * Show network interface driver information
+ */
+void show_network_info(void) {
+    kernel_print("\nNetwork Interface Driver Information:\n");
+    kernel_print("====================================\n");
+    
+    // Show interface summary
+    kernel_print("Printing all network interfaces:\n");
+    network_print_all_interfaces();
+    
+    // Show default interface
+    network_interface_t* default_iface = network_get_default_interface();
+    if (default_iface) {
+        kernel_print("\nDefault Interface: %s\n", default_iface->name);
+        kernel_print("Type: %s\n", 
+                    default_iface->type == NETWORK_TYPE_ETHERNET ? "Ethernet" : 
+                    default_iface->type == NETWORK_TYPE_WIFI ? "Wi-Fi" : "Unknown");
+        kernel_print("State: %s\n", 
+                    default_iface->state == NETWORK_STATE_UP ? "UP" : "DOWN");
+        kernel_print("MAC: %s\n", network_mac_addr_to_string(&default_iface->mac_address));
+        kernel_print("IP: %s\n", network_ip_addr_to_string(&default_iface->ip_address));
+        kernel_print("DHCP: %s\n", default_iface->dhcp_enabled ? "Enabled" : "Disabled");
+    } else {
+        kernel_print("\nNo default interface configured\n");
+    }
+    
+    // Show global statistics
+    uint64_t global_tx_packets, global_rx_packets, global_tx_bytes, global_rx_bytes;
+    if (network_get_global_stats(&global_tx_packets, &global_rx_packets, 
+                                &global_tx_bytes, &global_rx_bytes) == NETWORK_SUCCESS) {
+        kernel_print("\nGlobal Network Statistics:\n");
+        kernel_print("TX: %lu packets (%lu bytes)\n", global_tx_packets, global_tx_bytes);
+        kernel_print("RX: %lu packets (%lu bytes)\n", global_rx_packets, global_rx_bytes);
+    }
+    
+    kernel_print("\nNetwork Interface Driver ready for use\n");
 }
