@@ -15,6 +15,7 @@
 #include "string.h"
 #include "stdio.h"
 #include <stddef.h>
+#include <stdlib.h>
 
 /* Global HID state */
 static hid_device_t* hid_devices[USB_MAX_DEVICES];

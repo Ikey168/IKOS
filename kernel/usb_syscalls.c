@@ -16,6 +16,7 @@
 #include "stdio.h"
 #include <stdint.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 /* USB System Call Numbers */
 #define SYS_USB_GET_DEVICE_COUNT    200

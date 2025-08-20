@@ -1,4 +1,11 @@
-/* IKOS UHCI Host Controller Driver
+/* IKOS UHC#include "usb_uhci.h"
+#include "usb.h"
+#include "interrupts.h"
+#include "memory.h"
+#include "string.h"
+#include "stdio.h"
+#include <stdlib.h>
+#include <stdint.h>t Controller Driver
  * 
  * Universal Host Controller Interface (UHCI) driver for USB 1.1
  * This implementation provides:
@@ -14,6 +21,7 @@
 #include "memory.h"
 #include "stdio.h"
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdbool.h>
 
 /* UHCI Register Offsets */
@@ -189,11 +197,12 @@ static void unregister_irq_handler(uint8_t irq) {
 /* UHCI Host Controller Interface */
 static usb_hci_t uhci_hci = {
     .name = "UHCI",
-    .init = uhci_init_controller,
-    .shutdown = uhci_shutdown_controller,
-    .submit_transfer = uhci_submit_transfer,
-    .cancel_transfer = uhci_cancel_transfer,
-    .scan_ports = uhci_scan_ports
+    .type = USB_HCI_UHCI,
+    .init = (int (*)(struct usb_hci *))uhci_init_controller,
+    .shutdown = (void (*)(struct usb_hci *))uhci_shutdown_controller,
+    .submit_transfer = (int (*)(struct usb_hci *, usb_transfer_t *))uhci_submit_transfer,
+    .cancel_transfer = (int (*)(struct usb_hci *, usb_transfer_t *))uhci_cancel_transfer,
+    .scan_ports = (void (*)(struct usb_bus *))uhci_scan_ports,
 };
 
 /* Register I/O functions */

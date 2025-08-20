@@ -1,14 +1,17 @@
 /* IKOS USB Control Transfer Implementation
  * 
- * USB control transfer support for IKOS operating system.
+ * USB control transfer handling for IKOS operating system.
  * This implementation provides:
- * - Standard USB control requests (GET_DESCRIPTOR, SET_ADDRESS, etc.)
+ * - Standard USB control transfers
  * - Control transfer state machine
- * - Descriptor parsing and management
- * - Device enumeration support
+ * - USB descriptor retrieval
+ * - Device configuration and addressing
  */
 
 #include "usb.h"
+
+/* Typedefs for compatibility */
+typedef usb_configuration_descriptor_t usb_config_descriptor_t;
 #include "memory.h"
 #include "string.h"
 #include "stdio.h"
@@ -479,7 +482,7 @@ void usb_dump_device_descriptor(usb_device_descriptor_t* desc) {
     printf("  bNumConfigurations: %d\n", desc->bNumConfigurations);
 }
 
-void usb_dump_config_descriptor(usb_config_descriptor_t* desc) {
+void usb_dump_config_descriptor(usb_configuration_descriptor_t* desc) {
     if (!desc) {
         return;
     }

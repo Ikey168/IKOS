@@ -44,7 +44,7 @@ C_SOURCES = scheduler.c interrupts.c scheduler_test.c kalloc.c kalloc_test.c use
             net/dns.c dns_syscalls.c \
             net/tls.c tls_syscalls.c \
             ext2.c ext2_syscalls.c \
-            usb.c usb_hid.c usb_uhci.c usb_control.c usb_syscalls.c usb_test.c
+            usb.c usb_hid.c usb_uhci.c usb_control.c usb_syscalls.c usb_test.c usb_integration.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 
@@ -84,7 +84,21 @@ device-drivers: $(C_OBJECTS) $(ASM_OBJECTS)
 usb: $(C_OBJECTS) $(ASM_OBJECTS)
 
 # USB Driver Framework components (Issue #50)
-usb-framework: $(C_OBJECTS) $(ASM_OBJECTS)
+usb-framework: 
+	@echo "Building USB Driver Framework components only..."
+	gcc -m64 -nostdlib -nostartfiles -nodefaultlibs -fno-builtin -fno-stack-protector -fno-pic \
+	    -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -mcmodel=kernel -I../include -c usb.c -o build/usb.o
+	gcc -m64 -nostdlib -nostartfiles -nodefaultlibs -fno-builtin -fno-stack-protector -fno-pic \
+	    -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -mcmodel=kernel -I../include -c usb_hid.c -o build/usb_hid.o
+	gcc -m64 -nostdlib -nostartfiles -nodefaultlibs -fno-builtin -fno-stack-protector -fno-pic \
+	    -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -mcmodel=kernel -I../include -c usb_uhci.c -o build/usb_uhci.o
+	gcc -m64 -nostdlib -nostartfiles -nodefaultlibs -fno-builtin -fno-stack-protector -fno-pic \
+	    -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -mcmodel=kernel -I../include -c usb_control.c -o build/usb_control.o
+	gcc -m64 -nostdlib -nostartfiles -nodefaultlibs -fno-builtin -fno-stack-protector -fno-pic \
+	    -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -mcmodel=kernel -I../include -c usb_syscalls.c -o build/usb_syscalls.o
+	gcc -m64 -nostdlib -nostartfiles -nodefaultlibs -fno-builtin -fno-stack-protector -fno-pic \
+	    -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -mcmodel=kernel -I../include -c usb_test.c -o build/usb_test.o
+	@echo "USB Driver Framework built successfully"
 
 # Kernel Logging System components (Issue #16)
 logging: $(C_OBJECTS) $(ASM_OBJECTS)

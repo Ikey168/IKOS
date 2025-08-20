@@ -15,6 +15,7 @@
 #include "string.h"
 #include "stdio.h"
 #include <stddef.h>
+#include <stdlib.h>
 
 /* Global USB state */
 static usb_bus_t usb_buses[USB_MAX_BUSES];
@@ -32,11 +33,11 @@ static uint8_t num_active_transfers = 0;
 static bool usb_initialized = false;
 
 /* Internal function prototypes */
-static int usb_enumerate_device(usb_device_t* device);
-static int usb_configure_device(usb_device_t* device);
-static void usb_handle_transfer_complete(usb_transfer_t* transfer);
-static usb_driver_t* usb_find_driver(usb_device_t* device);
-static int usb_parse_configuration(usb_device_t* device, uint8_t config_index);
+int usb_enumerate_device(usb_device_t* device);
+int usb_configure_device(usb_device_t* device);
+void usb_handle_transfer_complete(usb_transfer_t* transfer, int status);
+usb_driver_t* usb_find_driver(usb_device_t* device);
+int usb_parse_configuration(usb_device_t* device, uint8_t config_index);
 
 /* USB Core Initialization */
 int usb_init(void) {
@@ -87,9 +88,11 @@ void usb_shutdown(void) {
     
     /* Shutdown all buses */
     for (int i = 0; i < num_buses; i++) {
-        if (usb_buses[i].hci && usb_buses[i].hci->shutdown) {
-            usb_buses[i].hci->shutdown(&usb_buses[i]);
+        for (int i = 0; i < USB_MAX_BUSES; i++) {
+        if (usb_buses[i].state == USB_BUS_STATE_ACTIVE && usb_buses[i].hci && usb_buses[i].hci->shutdown) {
+            usb_buses[i].hci->shutdown(usb_buses[i].hci);
         }
+    }
     }
     
     usb_initialized = false;
@@ -114,7 +117,7 @@ int usb_register_bus(usb_bus_t* bus) {
             
             /* Initialize host controller */
             if (bus->hci && bus->hci->init) {
-                int result = bus->hci->init(&usb_buses[i]);
+                int result = bus->hci->init(bus->hci);
                 if (result != USB_SUCCESS) {
                     printf("[USB] Failed to initialize host controller: %d\n", result);
                     memset(&usb_buses[i], 0, sizeof(usb_bus_t));
@@ -149,7 +152,7 @@ void usb_unregister_bus(usb_bus_t* bus) {
     
     /* Shutdown host controller */
     if (bus->hci && bus->hci->shutdown) {
-        bus->hci->shutdown(bus);
+        bus->hci->shutdown(bus->hci);
     }
     
     memset(bus, 0, sizeof(usb_bus_t));
@@ -216,52 +219,47 @@ void usb_free_device(usb_device_t* device) {
     free(device);
 }
 
-int usb_connect_device(usb_device_t* device) {
+void usb_connect_device(usb_device_t* device) {
     if (!device) {
-        return USB_ERROR_INVALID_PARAM;
+        printf("[USB] Error: Device is NULL\n");
+        return;
     }
-    
-    printf("[USB] Connecting device %d\n", device->device_id);
-    
-    /* Enumerate device */
+
+    printf("[USB] Connecting device at address %d\n", device->address);
+
+    /* Enumerate the device */
     int result = usb_enumerate_device(device);
     if (result != USB_SUCCESS) {
         printf("[USB] Device enumeration failed: %d\n", result);
-        return result;
+        return;
     }
-    
-    /* Configure device */
+
+    /* Configure the device */
     result = usb_configure_device(device);
     if (result != USB_SUCCESS) {
         printf("[USB] Device configuration failed: %d\n", result);
-        return result;
+        return;
     }
-    
-    /* Find and bind driver */
+
+    /* Find and bind a driver */
     usb_driver_t* driver = usb_find_driver(device);
     if (driver) {
-        printf("[USB] Binding driver '%s' to device %d\n", driver->name, device->device_id);
-        
-        device->driver = driver;
         if (driver->probe) {
             result = driver->probe(device);
             if (result != USB_SUCCESS) {
                 printf("[USB] Driver probe failed: %d\n", result);
-                device->driver = NULL;
-                return result;
+                return;
             }
+            device->driver = driver;
+            printf("[USB] Bound device to driver: %s\n", driver->name);
         }
     } else {
-        printf("[USB] No driver found for device %d\n", device->device_id);
+        printf("[USB] No driver found for device class 0x%02X\n", device->device_class);
     }
-    
-    device->state = USB_DEVICE_STATE_CONFIGURED;
-    printf("[USB] Device %d connected successfully\n", device->device_id);
-    
-    return USB_SUCCESS;
-}
 
-void usb_disconnect_device(usb_device_t* device) {
+    device->connected = true;
+    printf("[USB] Device connected successfully\n");
+}void usb_disconnect_device(usb_device_t* device) {
     if (!device) {
         return;
     }
@@ -281,7 +279,10 @@ void usb_disconnect_device(usb_device_t* device) {
 }
 
 /* Device Enumeration */
-static int usb_enumerate_device(usb_device_t* device) {
+/**
+ * Enumerate a USB device - discover configuration and interfaces
+ */
+int usb_enumerate_device(usb_device_t* device) {
     printf("[USB] Enumerating device %d\n", device->device_id);
     
     /* Get device descriptor */
@@ -328,9 +329,9 @@ static int usb_enumerate_device(usb_device_t* device) {
 }
 
 /* Configuration Parsing */
-static int usb_parse_configuration(usb_device_t* device, uint8_t config_index) {
+int usb_parse_configuration(usb_device_t* device, uint8_t config_index) {
     uint8_t buffer[512];
-    usb_config_descriptor_t* config_desc = (usb_config_descriptor_t*)buffer;
+    usb_configuration_descriptor_t* config_desc = (usb_configuration_descriptor_t*)buffer;
     
     /* Get configuration descriptor */
     int result = usb_get_configuration_descriptor(device, config_index, buffer, sizeof(buffer));
@@ -365,13 +366,13 @@ static int usb_parse_configuration(usb_device_t* device, uint8_t config_index) {
 }
 
 /* Device Configuration */
-static int usb_configure_device(usb_device_t* device) {
+int usb_configure_device(usb_device_t* device) {
     if (device->num_configurations == 0) {
         return USB_ERROR_NO_CONFIG;
     }
     
     /* Use first configuration by default */
-    usb_config_descriptor_t* config = (usb_config_descriptor_t*)device->configurations[0];
+    usb_configuration_descriptor_t* config = (usb_configuration_descriptor_t*)device->configurations[0];
     
     int result = usb_set_configuration(device, config->bConfigurationValue);
     if (result != USB_SUCCESS) {
@@ -405,16 +406,7 @@ usb_transfer_t* usb_alloc_transfer(usb_device_t* device, uint8_t endpoint,
     transfer->max_packet_size = max_packet_size;
     transfer->state = USB_TRANSFER_STATE_IDLE;
     
-    /* Add to active transfers */
-    for (int i = 0; i < USB_MAX_TRANSFERS; i++) {
-        if (!active_transfers[i]) {
-            active_transfers[i] = transfer;
-            transfer->transfer_id = i;
-            num_active_transfers++;
-            break;
-        }
-    }
-    
+    num_active_transfers++;
     return transfer;
 }
 
@@ -454,7 +446,7 @@ int usb_submit_transfer(usb_transfer_t* transfer) {
     transfer->state = USB_TRANSFER_STATE_ACTIVE;
     transfer->status = USB_TRANSFER_STATUS_PENDING;
     
-    int result = hci->submit_transfer(transfer->device->bus, transfer);
+    int result = hci->submit_transfer(hci, transfer);
     if (result != USB_SUCCESS) {
         transfer->state = USB_TRANSFER_STATE_IDLE;
         transfer->status = USB_TRANSFER_STATUS_ERROR;
@@ -474,7 +466,7 @@ int usb_cancel_transfer(usb_transfer_t* transfer) {
     
     usb_hci_t* hci = transfer->device->bus->hci;
     if (hci->cancel_transfer) {
-        hci->cancel_transfer(transfer->device->bus, transfer);
+        hci->cancel_transfer(hci, transfer);
     }
     
     transfer->state = USB_TRANSFER_STATE_IDLE;
@@ -484,12 +476,13 @@ int usb_cancel_transfer(usb_transfer_t* transfer) {
 }
 
 /* Transfer Completion Handling */
-static void usb_handle_transfer_complete(usb_transfer_t* transfer) {
+void usb_handle_transfer_complete(usb_transfer_t* transfer, int status) {
     if (!transfer) {
         return;
     }
     
     transfer->state = USB_TRANSFER_STATE_COMPLETE;
+    transfer->status = status;
     
     /* Call completion callback */
     if (transfer->callback) {
@@ -505,7 +498,7 @@ void usb_transfer_complete(usb_transfer_t* transfer, int status, uint16_t actual
     transfer->status = status;
     transfer->actual_length = actual_length;
     
-    usb_handle_transfer_complete(transfer);
+    usb_handle_transfer_complete(transfer, status);
 }
 
 /* Driver Management */
@@ -572,7 +565,7 @@ void usb_unregister_driver(usb_driver_t* driver) {
 }
 
 /* Driver Matching */
-static usb_driver_t* usb_find_driver(usb_device_t* device) {
+usb_driver_t* usb_find_driver(usb_device_t* device) {
     for (int i = 0; i < USB_MAX_DRIVERS; i++) {
         if (usb_drivers[i] && usb_driver_matches(usb_drivers[i], device)) {
             return usb_drivers[i];
