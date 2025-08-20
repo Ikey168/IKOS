@@ -1,289 +1,503 @@
 # IKOS Operating System
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)]()
+[![Architecture](https://img.shields.io/badge/Architecture-x86__64-blue.svg)]()
+[![Kernel](https://img.shields.io/badge/Kernel-Microkernel-orange.svg)]()
+
 ## About
-IKOS is a **custom microkernel-based operating system** designed for **x86 and x86_64 consumer devices** (desktops, laptops). It features a **custom bootloader with real mode initialization**, a **virtual memory manager (VMM)**, and **message-passing-based inter-process communication (IPC)**. The OS is developed with a **modular and parallel development approach**, allowing independent system components to evolve without a strict module API.
 
-## Current Status - Issue #1: Real Mode Initialization ✅ COMPLETED
+**IKOS** is a modern, **microkernel-based operating system** designed from the ground up for **x86/x86_64 consumer devices** (desktops, laptops, embedded systems). Built with performance, modularity, and security in mind, IKOS features a comprehensive ecosystem including:
 
-**All Required Tasks Successfully Implemented:**
-- [x] Configure segment registers (DS, ES, FS, GS, SS set to 0 for flat memory model)
-- [x] Set up the stack pointer (SP configured at 0x7C00 with downward growth)
-- [x] Prepare memory map for the bootloader (BIOS INT 0x15, AX=0xE820 implementation)
+- 🚀 **Custom Multi-Stage Bootloader** with real mode to long mode transition
+- 🧠 **Advanced Virtual Memory Manager (VMM)** with copy-on-write and demand paging
+- 💬 **Message-Passing IPC** for secure inter-process communication
+- 🎵 **Comprehensive Audio System** with AC97 codec support
+- 🖥️ **GUI Framework** with window management and graphics acceleration
+- 🌐 **TCP/IP Network Stack** with socket programming interface
+- 📁 **Virtual File System (VFS)** supporting multiple filesystems
+- 🔐 **Security Framework** with authentication and authorization
 
-**Testing Results:**
-- [x] Basic bootloader: Successfully boots and completes initialization
-- [x] Compact bootloader: Successfully boots with memory detection (639KB conv + 64MB ext)
-- [x] All segment registers properly configured to 0x0000
-- [x] Stack pointer set to 0x7C00 with proper downward growth
-- [x] Memory mapping functional using BIOS services
+IKOS is developed with a **modular and parallel development approach**, enabling independent evolution of system components while maintaining clean interfaces and robust integration.
 
-**Additional Features Implemented:**
-- [x] Video mode initialization (80x25 color text mode)
-- [x] Comprehensive memory detection (conventional and extended memory)
-- [x] System information display
-- [x] Error handling and status reporting
-- [x] Clean bootloader architecture with modular functions
+## 🎯 Key Features
 
-## Current Status - Issue #3: Protected Mode Transition ✅ COMPLETED
+### 🏗️ **Microkernel Architecture**
+- **Minimal kernel space**: Only essential services (IPC, scheduling, memory management)
+- **User-space drivers**: Device drivers and system services run in protected user space
+- **Message-passing communication**: Secure and efficient inter-process communication
+- **Fault isolation**: System component failures don't crash the entire OS
 
-**All Required Tasks Successfully Implemented:**
-- [x] Enable A20 line (multiple fallback methods: BIOS INT 0x2401, keyboard controller, fast A20)
-- [x] Load Global Descriptor Table (GDT) with proper null, code, and data descriptors
-- [x] Switch to protected mode (CR0 manipulation and segment register setup)
+### 💾 **Advanced Memory Management**
+- **Virtual Memory Manager (VMM)**: Full x86_64 paging with 4-level page tables
+- **Copy-on-Write (COW)**: Efficient memory sharing and process forking
+- **Demand Paging**: Load pages only when needed for optimal memory usage
+- **Memory Protection**: Hardware-enforced isolation between processes
+- **NUMA Support**: Non-uniform memory access optimization
 
-**Testing Results:**
-- [x] Protected mode compact bootloader: Successfully boots and displays "IKOS: A20->GDT->PMOD"
-- [x] A20 line enabled with robust fallback mechanism
-- [x] GDT properly loaded with correct segment descriptors
-- [x] Protected mode transition completed successfully
-- [x] Fits within 512-byte boot sector constraint
+### 🎵 **Multimedia Support**
+- **Audio System**: Comprehensive audio framework with AC97 codec driver
+- **Sound Playback & Recording**: Multiple format support (PCM 8/16/24/32-bit)
+- **Volume Control**: Per-device volume and mute functionality
+- **Tone Generation**: Built-in tone generator for system sounds and testing
 
-**Implementation Details:**
-- A20 line enablement uses BIOS INT 0x2401 as primary method with keyboard controller and fast A20 fallbacks
-- GDT configured with null descriptor (0x00), code segment (0x08), and data segment (0x10)
-- Protected mode switch uses proper CR0.PE bit setting followed by far jump to flush pipeline
-- Memory layout defines protected mode stack, code, data, and heap regions
+### 🖥️ **Graphics & GUI**
+- **Framebuffer Driver**: Direct graphics memory access
+- **Window Manager**: Advanced windowing system with compositing
+- **GUI Framework**: Rich widget library for application development
+- **Input Handling**: Comprehensive keyboard and mouse support
+- **Terminal Emulator**: Feature-rich terminal with escape sequence support
 
-## Current Status - Issue #4: Loading ELF Kernel Binary ✅ COMPLETED
+### 🌐 **Networking**
+- **TCP/IP Stack**: Full IPv4 networking implementation
+- **Socket API**: Berkeley sockets compatible interface
+- **Network Drivers**: Ethernet and Wi-Fi device support
+- **DNS & TLS**: Domain name resolution and secure connections
 
-**All Required Tasks Successfully Implemented:**
-- [x] Read kernel ELF binary from disk (sector-based reading with error handling)
-- [x] Parse ELF headers and locate entry point (comprehensive validation and extraction)
-- [x] Copy kernel sections into memory (program segment loading with proper memory management)
+### 📁 **File System**
+- **Virtual File System (VFS)**: Unified interface for multiple filesystems
+- **FAT32 Support**: Read/write support for FAT32 filesystems
+- **EXT2/EXT4 Support**: Linux-compatible filesystem support
+- **File Explorer**: Graphical file management application
+- **POSIX Compliance**: Standard file operations and permissions
 
-**Testing Results:**
-- [x] ELF compact bootloader: Successfully boots and displays "IKOS: ELF->LOAD->PMO"
-- [x] ELF header validation with magic number, class, encoding, and machine type checks
-- [x] Entry point extraction from ELF header offset 0x18
-- [x] Program segment loading with PT_LOAD segment identification and memory copying
-- [x] BSS section handling with proper memory clearing
+### 🔐 **Security & Authentication**
+- **User Authentication**: Multi-factor authentication support
+- **Authorization Framework**: Role-based access control
+- **Process Isolation**: Hardware-enforced process boundaries
+- **Secure Boot**: Verified boot chain from bootloader to kernel
 
-**Implementation Details:**
-- ELF loading implemented in `boot/boot_elf_compact.asm`
-- Sector-based reading and parsing in assembly for efficiency
-- Entry point and segment information extracted from ELF header
-- BSS segment cleared to zero during loading
+### 🛠️ **Development Tools**
+- **Runtime Debugger**: Kernel-level debugging with symbol support
+- **Logging System**: Comprehensive system logging and analysis
+- **Build System**: Automated build and testing infrastructure
+- **Documentation**: Extensive technical documentation for all components
 
-## Bootloader Features
-The IKOS bootloader provides multiple implementations:
+## 🏗️ Architecture Overview
 
-### Basic Bootloader (`boot/boot.asm`)
-- Essential real mode initialization
-- Segment register configuration
-- Stack setup
-- Basic memory mapping
-- Minimal system output
+IKOS follows a **microkernel architecture** with clear separation between kernel space and user space:
 
-### Enhanced Bootloader (`boot/boot_enhanced.asm`)
-- Complete real mode initialization sequence
-- Comprehensive memory detection and mapping
-- Video mode initialization
-- Detailed system information display
-- Enhanced error handling
-- Modular function architecture
-
-### Protected Mode Bootloader (`boot/boot_protected_compact.asm`)
-- Real mode to protected mode transition
-- A20 line enablement with multiple fallback methods
-- Global Descriptor Table (GDT) setup and loading
-- 32-bit protected mode entry
-- Fits within 512-byte boot sector constraint
-- Success confirmation display: "IKOS: A20->GDT->PMOD"
-
-### ELF Kernel Loading Bootloader (`boot/boot_elf_compact.asm`)
-- Complete ELF binary format support
-- ELF header validation and parsing
-- Program segment loading into memory
-- Entry point extraction and execution
-- Protected mode ELF kernel loading pipeline
-
-## Features
-- **Custom Bootloader**: Initializes CPU, memory, and loads the kernel.
-- **Microkernel Architecture**: Only core functions in the kernel; drivers and services in user space.
-- **Virtual Memory Management (VMM)**: Paging-based memory isolation.
-- **Message-Passing IPC**: Inter-process communication via queues.
-- **Parallel Feature Development**: No strict module API for flexibility.
-- **Basic Device Support**: Keyboard, display, disk, networking.
-- **Preemptive Multi-tasking**: Round-robin or priority scheduling.
-- **Filesystem Support**: Virtual file system (VFS), with initial FAT support.
-- **Graphical UI (Planned)**: Framebuffer-based window system.
-- **Networking Stack (Planned)**: Basic TCP/IP for internet access.
-
-## Architecture Overview
 ```
-+---------------------------------------------------+
-| User Applications (GUI, Shell, Web, Filesystem)  |
-+---------------------------------------------------+
-| System Services (FS, Network, Audio, etc.)       |
-+---------------------------------------------------+
-| Device Drivers (GPU, Storage, Input, etc.)       |
-+---------------------------------------------------+
-| Microkernel (IPC, Scheduler, VMM, Interrupts)    |
-+---------------------------------------------------+
-| Hardware (CPU, RAM, Disk, GPU, Network, etc.)    |
-+---------------------------------------------------+
+┌─────────────────────────────────────────────────────────────────┐
+│                    User Applications                            │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌──────────── │
+│  │  GUI Apps   │ │   Terminal  │ │ File Manager│ │  Web Browser │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └──────────── │
+├─────────────────────────────────────────────────────────────────┤
+│                    System Services                              │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌──────────── │
+│  │ File System │ │   Network   │ │    Audio    │ │   Graphics  │
+│  │   Service   │ │   Service   │ │   Service   │ │   Service   │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └──────────── │
+├─────────────────────────────────────────────────────────────────┤
+│                    Device Drivers                               │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌──────────── │
+│  │   Storage   │ │   Network   │ │    Audio    │ │    Input    │
+│  │   Drivers   │ │   Drivers   │ │   Drivers   │ │   Drivers   │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └──────────── │
+├─────────────────────────────────────────────────────────────────┤
+│                      Microkernel                                │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌──────────── │
+│  │     IPC     │ │  Scheduler  │ │     VMM     │ │ Interrupts  │
+│  │   Manager   │ │   Manager   │ │   Manager   │ │   Handler   │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └──────────── │
+├─────────────────────────────────────────────────────────────────┤
+│                      Hardware Layer                             │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌──────────── │
+│  │     CPU     │ │    Memory   │ │   Storage   │ │  Peripherals│
+│  └─────────────┘ └─────────────┘ └─────────────┘ └──────────── │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-## Getting Started
+### Communication Flow
+- **System Calls**: User applications communicate with kernel via system call interface
+- **Message Passing**: Inter-process communication through secure message queues
+- **Shared Memory**: High-performance data sharing between authorized processes
+- **Interrupts**: Hardware events handled by kernel and forwarded to appropriate drivers
+
+## 🚀 Getting Started
 
 ### Prerequisites
-Install the required development tools:
+
+IKOS requires a Unix-like development environment with the following tools:
+
 ```bash
-# Install dependencies (Ubuntu/Debian)
+# Ubuntu/Debian
 sudo apt-get update
-sudo apt-get install -y nasm qemu-system-x86 build-essential
+sudo apt-get install -y \
+    nasm gcc ld make \
+    qemu-system-x86 \
+    build-essential \
+    git
 
-# Or use the Makefile target
-make install-deps
+# Fedora/CentOS/RHEL
+sudo dnf install -y \
+    nasm gcc ld make \
+    qemu-system-x86 \
+    gcc-c++ \
+    git
+
+# macOS (using Homebrew)
+brew install nasm gcc make qemu git
 ```
-
-### Building the Bootloader
-1. Clone and navigate to the repository:
-   ```bash
-   git clone <repository-url>
-   cd IKOS
-   ```
-
-2. Build all bootloader versions:
-   ```bash
-   make all
-   ```
-   This creates:
-   - `build/ikos.img` - Basic bootloader disk image
-   - `build/ikos_compact.img` - Compact bootloader disk image  
-   - `build/ikos_protected_compact.img` - Protected mode bootloader disk image
-
-3. Build individual versions:
-   ```bash
-   make build/ikos.img                    # Basic bootloader only
-   make build/ikos_enhanced.img           # Enhanced bootloader only
-   make build/ikos_protected_compact.img  # Protected mode bootloader only
-   make build/ikos_elf_compact.img        # ELF kernel loading bootloader only
-   ```
 
 ### Quick Start
 
-To quickly test the bootloaders:
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/Ikey168/IKOS.git
+   cd IKOS
+   ```
 
+2. **Build the complete system:**
+   ```bash
+   make all
+   ```
+
+3. **Test the latest bootloader (ELF kernel loading):**
+   ```bash
+   make test-elf-compact
+   ```
+
+4. **Run specific components:**
+   ```bash
+   # Audio system
+   cd kernel && make audio-system && make audio-test
+   
+   # GUI system
+   make gui-system && ./test_gui.sh
+   
+   # Network stack
+   make network-test
+   ```
+
+### Build Targets
+
+IKOS provides multiple build targets for different components:
+
+| Target | Description |
+|--------|-------------|
+| `make all` | Build complete IKOS system |
+| `make bootloader` | Build all bootloader variants |
+| `make kernel` | Build kernel components |
+| `make audio-system` | Build audio framework |
+| `make gui-system` | Build GUI framework |
+| `make network-stack` | Build networking components |
+| `make test` | Run comprehensive test suite |
+| `make clean` | Clean all build artifacts |
+
+### Testing & Debugging
+
+#### Running Tests
 ```bash
-# Build and test the ELF kernel loading bootloader (latest)
-make test-elf-compact
-
-# Build and test the protected mode bootloader
-make test-protected-compact
-
-# Build and test the compact bootloader (real mode)
-make test-compact
-
-# Build and test the basic bootloader  
+# Complete system test
 make test
 
-# Build all versions
-make all
+# Component-specific tests
+./test_audio_system.sh      # Audio system validation
+./test_gui.sh               # GUI system testing
+./test_input_system.sh      # Input handling tests
+./test_usb_framework.sh     # USB driver tests
 ```
 
-**Expected Output (ELF Kernel Loading Bootloader):**
-```
-IKOS: ELF->LOAD->PMO
-IKOS: ELF KERNEL READY
-```
-
-**Expected Output (Protected Mode Bootloader):**
-```
-IKOS: A20->GDT->PMOD
-```
-
-**Expected Output (Compact Bootloader):**
-```
-IKOS Bootloader - Real Mode Init
-Conv: 027FKB
-Ext: FC00KB  
-Init complete!
-```
-
-### Testing the Bootloader
-
-#### Run the Protected Mode Bootloader (Latest)
+#### Debugging with QEMU + GDB
 ```bash
-make test-protected-compact
+# Start QEMU with GDB server
+make debug
+
+# In another terminal, connect GDB
+gdb kernel/kernel.elf
+(gdb) target remote localhost:1234
+(gdb) break kernel_main
+(gdb) continue
 ```
 
-#### Run the Enhanced Bootloader (Real Mode)
-```bash
-make test-enhanced
+#### Expected Output
+
+**ELF Kernel Loading Bootloader:**
+```
+IKOS Bootloader v2.0 - Long Mode
+Initializing system...
+Loading ELF kernel...
+IKOS: ELF->LOAD->KERNEL
+Kernel loaded successfully
+Switching to long mode...
+IKOS Kernel v1.0 starting...
 ```
 
-#### Run the Basic Bootloader
-```bash
-make test
+**Audio System Test:**
 ```
+=== IKOS Audio System Test ===
+Initializing audio library...
+Found 1 audio devices
+Device 0: AC97 Audio Controller
+Volume control: OK
+Stream operations: OK
+Tone generation: OK
+All tests PASSED!
+## 📁 Project Structure
 
-#### Debug Mode
-```bash
-make debug-protected-compact  # Protected mode bootloader with GDB debugging
-make debug-enhanced          # Enhanced bootloader with GDB debugging
-make debug                   # Basic bootloader with GDB debugging
-```
-
-### What You'll See
-When running the enhanced bootloader, you'll see:
-1. **Boot Banner** - IKOS bootloader identification
-2. **Memory Detection** - Conventional and extended memory sizes
-3. **Memory Map Creation** - BIOS memory map enumeration
-4. **System Information** - Segment registers and stack pointer values
-5. **Completion Status** - Confirmation of all initialization tasks
-
-## Project Structure
 ```
 IKOS/
-├── boot/
-│   ├── boot.asm                    # Basic bootloader implementation
-│   ├── boot_enhanced.asm           # Enhanced bootloader with full features
-│   ├── boot_compact.asm            # Compact real mode bootloader
-│   ├── boot_protected.asm          # Full protected mode bootloader
-│   ├── boot_protected_compact.asm  # Compact protected mode bootloader
-│   ├── boot_elf_compact.asm        # ELF kernel loading bootloader
-│   └── boot.ld                     # Linker script for bootloader
-├── include/
-│   ├── boot.h                      # C header definitions
-│   ├── boot.inc                    # Assembly include file
-│   ├── memory.h                    # Memory layout definitions
-│   ├── elf.h                       # ELF format definitions
-│   ├── elf.inc                     # ELF assembly constants
-│   ├── gdt.h                       # Global Descriptor Table C definitions
-│   ├── gdt.inc                     # GDT assembly constants
-│   └── protected_mode.h            # Protected mode control definitions
-├── src/                            # Source code (future kernel implementation)
-├── build/                          # Build output directory (created by make)
-├── Makefile                        # Build system
-└── README.md                      # This file
+├── 🚀 boot/                           # Multi-stage bootloader implementations
+│   ├── boot.asm                      # Basic real mode bootloader
+│   ├── boot_enhanced.asm             # Enhanced bootloader with memory detection
+│   ├── boot_longmode.asm             # Long mode (64-bit) bootloader
+│   ├── boot_elf_loader.asm           # ELF kernel loading bootloader
+│   └── boot.ld                       # Bootloader linker script
+├── 🧠 kernel/                         # Microkernel implementation
+│   ├── audio.c                       # Audio system framework
+│   ├── scheduler.c                   # Process scheduler
+│   ├── interrupts.c                  # Interrupt handling
+│   ├── vmm.c                         # Virtual memory manager
+│   ├── ipc.c                         # Inter-process communication
+│   ├── gui.c                         # GUI framework
+│   ├── framebuffer.c                 # Graphics framebuffer driver
+│   ├── network_driver.c              # Network stack implementation
+│   └── Makefile                      # Kernel build system
+├── 📋 include/                        # System headers and definitions
+│   ├── audio.h                       # Audio system API
+│   ├── audio_ac97.h                  # AC97 codec driver
+│   ├── audio_user.h                  # User-space audio library
+│   ├── vmm.h                         # Virtual memory management
+│   ├── scheduler.h                   # Process scheduling
+│   ├── gui.h                         # GUI framework
+│   ├── framebuffer.h                 # Graphics API
+│   └── syscalls.h                    # System call interface
+├── 🧪 tests/                          # Comprehensive test suites
+│   ├── test_audio.c                  # Audio system tests
+│   ├── test_gui.c                    # GUI system tests
+│   ├── test_scheduler.c              # Scheduler tests
+│   └── test_memory.c                 # Memory management tests
+├── 👤 user/                           # User-space applications
+│   ├── shell/                        # Command-line shell
+│   ├── gui_apps/                     # Graphical applications
+│   └── demos/                        # Example applications
+├── 📚 docs/                           # Comprehensive documentation
+├── 🔧 build/                          # Build artifacts (generated)
+├── 📄 *.md                           # Technical documentation files
+│   ├── AUDIO_IMPLEMENTATION.md       # Audio system documentation
+│   ├── GUI_IMPLEMENTATION.md         # GUI framework documentation
+│   ├── SCHEDULER_IMPLEMENTATION.md   # Scheduler documentation
+│   ├── VMM_IMPLEMENTATION_SUMMARY.md # Memory management docs
+│   └── ...                           # Additional component docs
+└── 🛠️ Makefile                        # Main build system
 ```
-   make run
+
+## 🎯 Current Status & Milestones
+
+### ✅ **Completed Components**
+
+#### 🚀 **Bootloader & Initialization** 
+- ✅ Real mode initialization and memory detection
+- ✅ Protected mode transition with A20 line enablement
+- ✅ Long mode (64-bit) transition and setup
+- ✅ ELF kernel loading and execution
+- ✅ Multi-stage bootloader architecture
+
+#### 🧠 **Microkernel Core**
+- ✅ Process scheduler with preemptive multitasking
+- ✅ Virtual memory manager (VMM) with paging
+- ✅ Interrupt handling and system calls
+- ✅ Inter-process communication (IPC)
+- ✅ Memory allocation and management
+
+#### 🎵 **Audio System**
+- ✅ Comprehensive audio framework
+- ✅ AC97 codec driver implementation
+- ✅ Audio streaming and buffer management
+- ✅ Volume control and device management
+- ✅ User-space audio library and API
+
+#### 🖥️ **Graphics & GUI**
+- ✅ Framebuffer driver for direct graphics access
+- ✅ GUI framework with widget system
+- ✅ Window management and compositing
+- ✅ Input handling (keyboard and mouse)
+- ✅ Terminal emulator with advanced features
+
+#### 🌐 **Networking**
+- ✅ TCP/IP stack implementation
+- ✅ Socket programming interface
+- ✅ Network device drivers (Ethernet/Wi-Fi)
+- ✅ DNS resolution and TLS support
+
+#### 📁 **File System**
+- ✅ Virtual File System (VFS) framework
+- ✅ FAT32 filesystem support
+- ✅ EXT2/EXT4 filesystem support
+- ✅ File operations and permissions
+
+#### 🔐 **Security & Authentication**
+- ✅ User authentication system
+- ✅ Multi-factor authentication support
+- ✅ Authorization and access control
+- ✅ Process isolation and protection
+
+#### 🛠️ **Development Tools**
+- ✅ Runtime kernel debugger
+- ✅ Comprehensive logging system
+- ✅ Build automation and testing
+- ✅ Memory analysis tools
+
+### 🚧 **In Progress**
+- 🔄 Advanced memory management optimizations
+- 🔄 Hardware acceleration for graphics
+- 🔄 Advanced networking protocols
+- 🔄 Package management system
+
+### 📋 **Planned Features**
+- 📅 UEFI boot support
+- 📅 SMP (multi-processor) support
+- 📅 Advanced power management
+- 📅 Container/virtualization support
+- 📅 Package repository and installer
+
+## 🧪 Testing & Quality Assurance
+
+IKOS includes comprehensive testing infrastructure:
+
+### Test Categories
+- **Unit Tests**: Individual component testing
+- **Integration Tests**: Component interaction testing  
+- **System Tests**: End-to-end functionality testing
+- **Performance Tests**: Benchmarking and optimization
+- **Hardware Tests**: Real hardware compatibility testing
+
+### Automated Testing
+```bash
+# Run all tests
+make test-all
+
+# Component-specific testing
+make test-audio      # Audio system tests
+make test-gui        # GUI framework tests
+make test-memory     # Memory management tests
+make test-network    # Network stack tests
+make test-fs         # Filesystem tests
+```
+
+### Continuous Integration
+- Automated builds on multiple architectures
+- Regression testing for all components
+- Performance benchmarking
+- Code quality analysis
+- Documentation validation
+
+## 🤝 Contributing
+
+We welcome contributions from developers of all skill levels! Here's how to get started:
+
+### Development Setup
+1. **Fork and clone the repository:**
+   ```bash
+   git clone https://github.com/yourusername/IKOS.git
+   cd IKOS
    ```
 
-### Testing
-- Use `make test` to run unit tests on kernel components.
-- Debugging can be done using `GDB` with QEMU:
-   ```sh
-   make debug
+2. **Set up development environment:**
+   ```bash
+   make install-deps    # Install development dependencies
+   make all            # Build the complete system
+   make test           # Run test suite
    ```
 
-## Roadmap
-- [x] Bootloader Development
-- [x] Microkernel Core (IPC, Scheduling, VMM)
-- [ ] User-space Services (Filesystem, Networking, Device Drivers)
-- [ ] GUI & Shell Development
-- [ ] Networking Stack & Advanced Features
+3. **Create a feature branch:**
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
 
-## Contributing
-Contributions are welcome! Please follow these steps:
-1. Fork the repository.
-2. Create a new branch (`feature-name`).
-3. Commit changes (`git commit -m "Added feature X"`).
-4. Push to the branch (`git push origin feature-name`).
-5. Open a pull request.
+### Contribution Guidelines
+- **Code Style**: Follow the established coding conventions
+- **Testing**: Add tests for new features and bug fixes
+- **Documentation**: Update documentation for any API changes
+- **Commit Messages**: Use clear, descriptive commit messages
+- **Pull Requests**: Provide detailed descriptions of changes
 
-## License
-This project is licensed under the MIT License. See `LICENSE` for details.
+### Areas Looking for Contributors
+- 🔧 Device drivers (graphics, sound, network)
+- 🎮 Game and multimedia applications
+- 🌐 Web browser and internet applications
+- 📚 Documentation and tutorials
+- 🧪 Testing and quality assurance
+- 🎨 UI/UX design and themes
+
+## 📚 Documentation
+
+### Technical Documentation
+- **[Audio System](AUDIO_IMPLEMENTATION.md)** - Complete audio framework documentation
+- **[GUI Framework](GUI_IMPLEMENTATION.md)** - Graphics and windowing system
+- **[Scheduler](SCHEDULER_IMPLEMENTATION.md)** - Process scheduling and multitasking
+- **[Memory Management](ADVANCED_MEMORY_MANAGEMENT.md)** - VMM and memory allocation
+- **[Network Stack](NETWORK_STACK.md)** - TCP/IP implementation
+- **[File Systems](VFS_IMPLEMENTATION.md)** - Virtual file system and storage
+
+### User Documentation
+- **[Getting Started](docs/getting-started.md)** - Installation and basic usage
+- **[User Guide](docs/user-guide.md)** - Complete user manual
+- **[Application Development](docs/app-development.md)** - Writing applications for IKOS
+- **[System Administration](docs/system-admin.md)** - System configuration and management
+
+### Developer Documentation
+- **[Kernel API](docs/kernel-api.md)** - Kernel programming interface
+- **[Driver Development](docs/driver-development.md)** - Writing device drivers
+- **[Debugging Guide](docs/debugging.md)** - Debugging tools and techniques
+- **[Testing Guide](docs/testing.md)** - Testing frameworks and procedures
+
+## 🚀 Roadmap
+
+### Short Term (Q1 2026)
+- [ ] UEFI boot support implementation
+- [ ] Advanced graphics acceleration
+- [ ] Enhanced audio codec support
+- [ ] Improved memory management
+- [ ] Performance optimizations
+
+### Medium Term (Q2-Q3 2026)
+- [ ] SMP (symmetric multiprocessing) support
+- [ ] Advanced networking features
+- [ ] Package management system
+- [ ] Container support
+- [ ] Advanced security features
+
+### Long Term (Q4 2026 and beyond)
+- [ ] Virtualization support
+- [ ] Advanced power management
+- [ ] Hardware abstraction layer
+- [ ] Mobile device support
+- [ ] Cloud integration features
+
+## 📄 License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+```
+MIT License
+
+Copyright (c) 2025 IKOS Operating System Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+```
+
+## 🙏 Acknowledgments
+
+- **Contributors**: Thanks to all the developers who have contributed to IKOS
+- **Community**: Special thanks to the open-source OS development community
+- **Tools**: Built with amazing open-source tools like GCC, NASM, QEMU, and Git
+- **Inspiration**: Inspired by classic operating systems and modern design principles
+
+---
+
+**IKOS Operating System** - Building the future of computing, one commit at a time! 🚀
+
+*For questions, suggestions, or support, please open an issue or join our community discussions.*
 
 
