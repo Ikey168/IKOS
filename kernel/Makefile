@@ -44,7 +44,8 @@ C_SOURCES = scheduler.c interrupts.c scheduler_test.c kalloc.c kalloc_test.c use
             net/dns.c dns_syscalls.c \
             net/tls.c tls_syscalls.c \
             ext2.c ext2_syscalls.c \
-            usb.c usb_hid.c usb_uhci.c usb_control.c usb_syscalls.c usb_test.c usb_integration.c
+            usb.c usb_hid.c usb_uhci.c usb_control.c usb_syscalls.c usb_test.c usb_integration.c \
+            audio.c audio_ac97.c audio_syscalls.c audio_user.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 
@@ -54,9 +55,9 @@ ASM_OBJECTS = $(patsubst %.asm,$(BUILDDIR)/%.o,$(ASM_SOURCES))
 BOOT_OBJECTS = $(patsubst $(BOOTDIR)/%.asm,$(BUILDDIR)/%.o,$(BOOT_SOURCES))
 
 # Targets
-.PHONY: all clean test scheduler bootloader kernel ipc device-drivers framebuffer process-termination signal-handling process-lifecycle daemon-system terminal-emulator gui-system input-system notifications terminal-gui
+.PHONY: all clean test scheduler bootloader kernel ipc device-drivers framebuffer process-termination signal-handling process-lifecycle daemon-system terminal-emulator gui-system input-system notifications terminal-gui audio-system
 
-all: $(BUILDDIR) bootloader scheduler ipc device-drivers framebuffer process-termination signal-handling process-lifecycle daemon-system terminal-emulator gui-system input-system notifications terminal-gui kernel
+all: $(BUILDDIR) bootloader scheduler ipc device-drivers framebuffer process-termination signal-handling process-lifecycle daemon-system terminal-emulator gui-system input-system notifications terminal-gui audio-system kernel
 
 # Create build directory
 $(BUILDDIR):
@@ -132,6 +133,25 @@ notifications: $(C_OBJECTS) $(ASM_OBJECTS)
 
 # Terminal GUI Integration components (Issue #43)
 terminal-gui: $(C_OBJECTS) $(ASM_OBJECTS)
+
+# Audio System components (Issue #51)
+audio-system: 
+	@echo "Building Audio System components only..."
+	gcc -m64 -nostdlib -nostartfiles -nodefaultlibs -fno-builtin -fno-stack-protector -fno-pic \
+	    -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -mcmodel=kernel -I../include -c audio.c -o build/audio.o
+	gcc -m64 -nostdlib -nostartfiles -nodefaultlibs -fno-builtin -fno-stack-protector -fno-pic \
+	    -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -mcmodel=kernel -I../include -c audio_ac97.c -o build/audio_ac97.o
+	gcc -m64 -nostdlib -nostartfiles -nodefaultlibs -fno-builtin -fno-stack-protector -fno-pic \
+	    -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -mcmodel=kernel -I../include -c audio_syscalls.c -o build/audio_syscalls.o
+	gcc -m64 -nostdlib -nostartfiles -nodefaultlibs -fno-builtin -fno-stack-protector -fno-pic \
+	    -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -mcmodel=kernel -I../include -c audio_user.c -o build/audio_user.o
+	@echo "Audio System built successfully"
+
+# Audio System test
+audio-test: $(BUILDDIR)/audio_test
+
+$(BUILDDIR)/audio_test: ../tests/test_audio.c $(BUILDDIR)/audio_user.o
+	$(CC) -static -I../include -o $@ $< $(BUILDDIR)/audio_user.o -lm
 
 # Window Manager System components (Issue #39)
 window-manager: $(C_OBJECTS) $(ASM_OBJECTS)
