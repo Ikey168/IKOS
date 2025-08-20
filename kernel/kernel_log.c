@@ -6,7 +6,10 @@
 
 #include "../include/kernel_log.h"
 #include "../include/boot.h"
+#include "../include/io.h"
 #include <string.h>
+#include <stdio.h>
+#include <stddef.h>
 
 /* ================================
  * Internal Data Structures
@@ -664,26 +667,4 @@ void klog_dump_system_state(void) {
     klog_info(LOG_CAT_KERNEL, "Output targets: 0x%02x", g_log_config.output_targets);
     klog_info(LOG_CAT_KERNEL, "Serial port: 0x%04x", g_log_config.serial_port);
     klog_print_stats();
-}
-
-/* Placeholder for actual port I/O functions - these would be implemented elsewhere */
-void outb(uint16_t port, uint8_t value) {
-    /* Assembly implementation would go here */
-    __asm__ volatile("outb %0, %1" : : "a"(value), "Nd"(port));
-}
-
-uint8_t inb(uint16_t port) {
-    /* Assembly implementation would go here */
-    uint8_t result;
-    __asm__ volatile("inb %1, %0" : "=a"(result) : "Nd"(port));
-    return result;
-}
-
-/* Simple snprintf implementation */
-int snprintf(char* buffer, size_t size, const char* format, ...) {
-    va_list args;
-    va_start(args, format);
-    int result = klog_sprintf(buffer, size, format, args);
-    va_end(args);
-    return result;
 }
