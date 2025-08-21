@@ -194,10 +194,31 @@ IKOS provides multiple build targets for different components:
 make test
 
 # Component-specific tests
-./test_audio_system.sh      # Audio system validation
-./test_gui.sh               # GUI system testing
-./test_input_system.sh      # Input handling tests
-./test_usb_framework.sh     # USB driver tests
+./scripts/test/test_audio_system.sh      # Audio system validation
+./scripts/test/test_gui.sh               # GUI system testing
+./scripts/test/test_input_system.sh      # Input handling tests
+./scripts/test/test_usb_framework.sh     # USB driver tests
+
+# Hardware testing
+./scripts/test/test_real_hardware.sh     # Real hardware compatibility
+./scripts/test/qemu_test.sh              # QEMU emulation testing
+
+# Memory and process testing
+./scripts/test/test_advanced_memory.sh   # Advanced memory management
+./scripts/test/test_paging.sh           # Paging system tests
+```
+
+#### Validation & Verification
+```bash
+# System validation
+./scripts/validation/validate_scheduler.sh    # Scheduler validation
+./scripts/validation/validate_cli.sh          # CLI validation
+./scripts/validation/verify_device_framework.sh # Device framework verification
+
+# Debugging
+./scripts/debug/debug_boot.sh                 # Boot process debugging
+./scripts/validation/validate_kernel_debug.sh # Kernel debugging validation
+```
 ```
 
 #### Debugging with QEMU + GDB
@@ -274,13 +295,50 @@ IKOS/
 │   ├── gui_apps/                     # Graphical applications
 │   └── demos/                        # Example applications
 ├── 📚 docs/                           # Comprehensive documentation
-├── 🔧 build/                          # Build artifacts (generated)
-├── 📄 *.md                           # Technical documentation files
-│   ├── AUDIO_IMPLEMENTATION.md       # Audio system documentation
-│   ├── GUI_IMPLEMENTATION.md         # GUI framework documentation
-│   ├── SCHEDULER_IMPLEMENTATION.md   # Scheduler documentation
-│   ├── VMM_IMPLEMENTATION_SUMMARY.md # Memory management docs
-│   └── ...                           # Additional component docs
+│   ├── README.md                     # Documentation index
+│   ├── architecture/                 # System architecture docs
+│   │   ├── VMM_README.md            # Virtual memory architecture
+│   │   ├── DEVICE_DRIVER_FRAMEWORK.md # Driver framework design
+│   │   ├── USB_DRIVER_FRAMEWORK.md  # USB framework architecture
+│   │   ├── NETWORK_STACK.md         # Network stack design
+│   │   └── TCPIP.md                 # TCP/IP implementation
+│   ├── implementation/               # Implementation documentation
+│   │   ├── AUDIO_IMPLEMENTATION.md  # Audio system implementation
+│   │   ├── GUI_IMPLEMENTATION.md    # GUI framework implementation
+│   │   ├── SCHEDULER_IMPLEMENTATION.md # Scheduler implementation
+│   │   ├── VMM_IMPLEMENTATION_SUMMARY.md # Memory management
+│   │   └── ...                      # Other component implementations
+│   └── testing/                      # Testing and debugging docs
+│       ├── QEMU_REAL_HARDWARE_TEST.md # Hardware testing guide
+│       ├── RUNTIME_KERNEL_DEBUGGER.md # Debugging guide
+│       └── real_hardware_test.md    # Real hardware testing
+├── 🔧 scripts/                        # Build, test, and utility scripts
+│   ├── README.md                     # Scripts documentation
+│   ├── build/                        # Build scripts
+│   │   ├── build_kernel_debug.sh    # Debug kernel build
+│   │   ├── build_userspace.sh       # User-space build
+│   │   └── create_bios_uefi_compat.sh # Boot image creation
+│   ├── test/                         # Test scripts
+│   │   ├── test_audio_system.sh     # Audio system tests
+│   │   ├── test_gui.sh              # GUI system tests
+│   │   ├── test_advanced_memory.sh  # Memory management tests
+│   │   ├── qemu_test.sh             # QEMU testing
+│   │   └── ...                      # Other test scripts
+│   ├── validation/                   # Validation scripts
+│   │   ├── validate_scheduler.sh    # Scheduler validation
+│   │   ├── validate_cli.sh          # CLI validation
+│   │   └── verify_device_framework.sh # Device framework verification
+│   └── debug/                        # Debug scripts
+│       └── debug_boot.sh            # Boot debugging
+├── 🔧 tools/                          # Development tools and utilities
+│   ├── analyze_paging.py            # Paging analysis tool
+│   └── test_signal_compile.c        # Signal testing utility
+├── 📋 examples/                       # Demo scripts and examples
+│   ├── demo_issue_17.sh             # Issue #17 demonstration
+│   └── demo_issue_18.sh             # Issue #18 demonstration
+├── 🏗️ build/                          # Build artifacts (generated)
+├── 📦 bin/                            # Binary executables
+├── 📚 lib/                            # System libraries
 └── 🛠️ Makefile                        # Main build system
 ```
 
