@@ -7,7 +7,7 @@
  *
  * Build: gcc -I../include -o test_checkpoint_context test_checkpoint_context.c \
  *            ../kernel/checkpoint.c ../kernel/snapshot_store.c \
- *            ../kernel/checkpoint_extstate.c
+ *            ../kernel/checkpoint_extstate.c ../kernel/checkpoint_barrier.c
  */
 
 #include <stdint.h>

@@ -11,7 +11,7 @@
  *
  * Build: gcc -I../include -o test_checkpoint_writeback \
  *            test_checkpoint_writeback.c ../kernel/checkpoint.c \
- *            ../kernel/snapshot_store.c ../kernel/checkpoint_extstate.c
+ *            ../kernel/snapshot_store.c ../kernel/checkpoint_extstate.c ../kernel/checkpoint_barrier.c
  */
 
 #include <stdint.h>
