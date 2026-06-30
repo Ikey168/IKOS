@@ -7,6 +7,11 @@
 #include "interrupts.h"
 #include <string.h>
 
+/* Orthogonal persistence (#117): drive the periodic checkpoint trigger from
+ * the timer tick. Forward-declared to avoid pulling the checkpoint/store
+ * headers (and their block-device deps) into the scheduler. */
+extern bool checkpoint_tick(void);
+
 /* Global scheduler state */
 static task_t* current_task = NULL;
 static task_t* idle_task = NULL;
@@ -191,7 +196,12 @@ void schedule(void) {
  */
 void scheduler_tick(void) {
     stats.total_interrupts++;
-    
+
+    /* Periodic orthogonal-persistence checkpoint (#117). Runs every tick so the
+     * cadence holds even while the CPU is otherwise idle; it self-gates on the
+     * configured interval and skips if a checkpoint is still being written. */
+    checkpoint_tick();
+
     if (!scheduler_enabled || !current_task) {
         return;
     }

@@ -17,12 +17,15 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "vmm.h"   /* vm_space_t, pte_t, PAGE_* flags */
+#include "vmm.h"            /* vm_space_t, pte_t, PAGE_* flags */
+#include "snapshot_store.h" /* snapshot_store_t (writeback target) */
 
 /* Error codes (negative); non-negative returns are counts/epochs. */
-#define CHECKPOINT_OK         0
-#define CHECKPOINT_ERR_PARAM -1
-#define CHECKPOINT_ERR_STATE -2
+#define CHECKPOINT_OK             0
+#define CHECKPOINT_ERR_PARAM     -1
+#define CHECKPOINT_ERR_STATE     -2
+#define CHECKPOINT_ERR_IO        -3
+#define CHECKPOINT_ERR_NO_CHECKPOINT -4  /* no valid checkpoint on disk: cold boot */
 
 /* Engine state, observable for tests, stats, and the writeback pass. */
 typedef struct {
@@ -94,6 +97,80 @@ bool checkpoint_handle_write_fault(vm_space_t* space, uint64_t fault_addr);
 checkpoint_capture_t* checkpoint_captures(void);
 uint64_t checkpoint_capture_count(void);
 void checkpoint_clear_captures(void);
+
+/* ----- Writeback (#115) -----
+ *
+ * Stream the current (open) checkpoint to the on-disk store, off the
+ * stop-the-world path. Persists, into the store's inactive slot:
+ *   - every captured page (the pre-checkpoint image preserved by the hook), and
+ *   - every still-clean snapshot-COW page in live user spaces (its frame still
+ *     holds the checkpoint-time content), read live at writeback time.
+ * Modified pages are not double-written: the hook cleared their PAGE_SNAPSHOT_COW
+ * tag, so the clean-page walk skips them. snapshot_store_commit() flips the
+ * superblock (the single commit point). On success the capture list is freed
+ * and the epoch is closed. Returns CHECKPOINT_OK or a negative code. */
+int checkpoint_writeback(snapshot_store_t* store);
+
+/* ----- Restore (#116) -----
+ *
+ * Called once for each page of the loaded checkpoint, in slot order. The
+ * record's page_data points at a reusable buffer owned by the restore loop;
+ * copy out anything that must outlive the call. Return CHECKPOINT_OK to
+ * continue or a negative code to abort the restore. */
+typedef int (*checkpoint_apply_fn)(void* ctx, const snapshot_page_record_t* rec);
+
+/* Load the latest valid checkpoint and replay every page through apply().
+ * Restores the global epoch to the checkpoint's epoch on success. Returns the
+ * number of pages restored (>= 0), CHECKPOINT_ERR_NO_CHECKPOINT if the store
+ * holds no valid checkpoint (the caller should cold-boot), or another negative
+ * code on error. Pure orchestration: all VMM/process work happens in apply(). */
+int checkpoint_restore(snapshot_store_t* store, checkpoint_apply_fn apply, void* ctx);
+
+/* Boot adapter: run checkpoint_restore() with the built-in kernel apply, which
+ * recreates an address space per pid and maps each restored page into it.
+ * Returns the number of pages restored (>= 0) or CHECKPOINT_ERR_NO_CHECKPOINT. */
+int checkpoint_restore_boot(snapshot_store_t* store);
+
+/* Register the store the boot path restores from. Until one is set,
+ * checkpoint_boot() reports "no checkpoint" and the kernel cold-boots. */
+void checkpoint_set_boot_store(snapshot_store_t* store);
+
+/* Boot-time entry point invoked from kernel_init(): restore from the
+ * registered boot store if one is configured, else signal a cold boot.
+ * Returns pages restored (>= 0) or CHECKPOINT_ERR_NO_CHECKPOINT. */
+int checkpoint_boot(void);
+
+/* ----- Periodic trigger (#117) ----- */
+
+/* Default checkpoint cadence, in timer ticks. The scheduler tick rate
+ * (TIMER_FREQUENCY) determines the wall-clock interval; callers can override. */
+#define CHECKPOINT_DEFAULT_INTERVAL_TICKS 1000
+
+/* Enable/disable automatic checkpoints and set the interval (in timer ticks).
+ * interval_ticks of 0 is treated as 1 (checkpoint every tick). */
+void checkpoint_timer_configure(bool enabled, uint64_t interval_ticks);
+
+/* Call once per timer tick (from scheduler_tick()). When enabled and the
+ * interval has elapsed, takes a checkpoint, but only if the previous one has
+ * finished writeback (epoch_open == false), so at most one checkpoint is ever
+ * in flight. Returns true if a checkpoint was taken on this tick. */
+bool checkpoint_tick(void);
+
+/* ----- Boot wiring (#119) ----- */
+
+/* Default checkpoint-store geometry on the backing device. */
+#define CHECKPOINT_STORE_BASE_SECTOR   0
+#define CHECKPOINT_STORE_SLOT_SECTORS  256
+
+/* Wire orthogonal persistence to a block device at boot: bind a snapshot store
+ * to `dev`, format it if it holds no valid checkpoint yet, register it as the
+ * boot store (so checkpoint_boot() restores from it), and enable the periodic
+ * trigger at the given cadence. Passing dev == NULL leaves persistence disabled
+ * (the kernel cold-boots), so callers can wire this unconditionally. Returns
+ * CHECKPOINT_OK when persistence is armed, or a negative code. */
+int checkpoint_persistence_init(snapshot_store_t* store, fat_block_device_t* dev,
+                                uint32_t base_sector, uint32_t slot_sectors,
+                                uint64_t interval_ticks);
 
 /* Take a checkpoint: bump the epoch, mark every live user address space, and
  * return the new epoch. Returns 0 on failure. Does no disk I/O and copies no

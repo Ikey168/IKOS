@@ -1,0 +1,57 @@
+name: Orthogonal Persistence
+
+# Builds and runs the orthogonal-persistence checkpoint/restore test suite and
+# the end-to-end "yank power, it remembers" demo headless (no QEMU required:
+# the demo drives the real checkpoint engine + snapshot store over a file-backed
+# disk, modeling a power cycle as a process restart).
+
+on:
+  push:
+    paths:
+      - 'kernel/checkpoint*.c'
+      - 'kernel/snapshot_store.c'
+      - 'include/checkpoint*.h'
+      - 'include/snapshot_store.h'
+      - 'tests/test_checkpoint*.c'
+      - 'tests/test_snapshot_store.c'
+      - 'tests/test_persistence_e2e.c'
+      - 'scripts/test/persistence_demo.sh'
+      - '.github/workflows/persistence.yml'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compiler version
+        run: gcc --version
+
+      - name: Freestanding compile check (kernel modules)
+        run: |
+          set -e
+          for f in kernel/checkpoint.c kernel/snapshot_store.c kernel/checkpoint_extstate.c; do
+            echo "freestanding: $f"
+            gcc -ffreestanding -fno-stack-protector -m64 -Iinclude -Wall -Wextra -fsyntax-only "$f"
+          done
+
+      - name: Checkpoint / store / restore unit tests
+        run: |
+          set -e
+          cd tests
+          gcc -I../include -Wall -o /tmp/t_store  test_snapshot_store.c                                              && /tmp/t_store
+          gcc -I../include -Wall -o /tmp/t_ckpt   test_checkpoint.c           ../kernel/checkpoint.c ../kernel/snapshot_store.c && /tmp/t_ckpt
+          gcc -I../include -Wall -o /tmp/t_wb     test_checkpoint_writeback.c ../kernel/checkpoint.c ../kernel/snapshot_store.c && /tmp/t_wb
+          gcc -I../include -Wall -o /tmp/t_rs     test_checkpoint_restore.c   ../kernel/checkpoint.c ../kernel/snapshot_store.c && /tmp/t_rs
+          gcc -I../include -Wall -o /tmp/t_tm     test_checkpoint_timer.c     ../kernel/checkpoint.c ../kernel/snapshot_store.c && /tmp/t_tm
+          gcc -I../include -Wall -o /tmp/t_ext    test_checkpoint_extstate.c  ../kernel/checkpoint_extstate.c                    && /tmp/t_ext
+
+  e2e-demo:
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    steps:
+      - uses: actions/checkout@v4
+      - name: End-to-end "yank power, it remembers" demo
+        run: bash scripts/test/persistence_demo.sh
