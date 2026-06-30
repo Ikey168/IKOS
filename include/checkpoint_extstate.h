@@ -63,4 +63,26 @@ int extstate_sever_all(extstate_resource_t* resources, int count);
  * severed across a restore, else EXTSTATE_OK. */
 int extstate_status(const extstate_resource_t* res);
 
+/* ----- File-descriptor integration (#128) -----
+ *
+ * The kernel tags a descriptor's flags word with its resource kind so that, on
+ * restore, the registrar can sever the non-persistable ones. The kind lives in
+ * the high bits of the flags so it does not collide with file open flags. */
+#define EXTSTATE_FD_KIND_SHIFT 28
+#define EXTSTATE_FD_KIND_MASK  (0x7u << EXTSTATE_FD_KIND_SHIFT)
+#define EXTSTATE_FD_SEVERED    (0x1u << 31)
+
+/* Store/read the resource kind in a descriptor's flags word. */
+void            extstate_fd_set_kind(uint32_t* flags, extstate_kind_t kind);
+extstate_kind_t extstate_kind_from_fd_flags(uint32_t flags);
+
+/* Restore-time transition for one descriptor (by its flags word): if its kind
+ * does not survive a checkpoint and it is not already severed, set the severed
+ * bit and return true. Persistable or already-severed descriptors return false. */
+bool extstate_sever_fd(uint32_t* flags);
+
+/* Has this descriptor been severed across a restore? Syscalls consult this to
+ * return a clean error so the app re-establishes the resource. */
+bool extstate_fd_is_severed(uint32_t flags);
+
 #endif /* CHECKPOINT_EXTSTATE_H */

@@ -84,6 +84,36 @@ int main(void) {
         CHECK(extstate_sever_all(fds, 0) == 0, "zero count is safe");
     }
 
+    /* === 4. File-descriptor flags integration (#128) === */
+    printf("Test 4: fd-flags severing\n");
+    {
+        /* Kind round-trips through the flags word without clobbering low bits. */
+        uint32_t f = 0x00000002; /* e.g. an O_RDWR-ish open flag in the low bits */
+        extstate_fd_set_kind(&f, EXTSTATE_SOCKET);
+        CHECK(extstate_kind_from_fd_flags(f) == EXTSTATE_SOCKET, "kind stored/read back");
+        CHECK((f & 0xFFFF) == 0x0002, "low (open) flag bits preserved");
+
+        /* A socket fd severs and then reports severed. */
+        CHECK(extstate_sever_fd(&f) == true, "socket fd severed on restore");
+        CHECK(extstate_fd_is_severed(f) == true, "socket fd reports severed");
+        CHECK(extstate_sever_fd(&f) == false, "second sever is a no-op");
+
+        /* A regular-file fd is untouched and usable. */
+        uint32_t file = 0;
+        extstate_fd_set_kind(&file, EXTSTATE_REGULAR_FILE);
+        CHECK(extstate_sever_fd(&file) == false, "regular-file fd not severed");
+        CHECK(extstate_fd_is_severed(file) == false, "regular-file fd usable");
+
+        /* Device and DMA fds also sever. */
+        uint32_t dev = 0, dma = 0;
+        extstate_fd_set_kind(&dev, EXTSTATE_DEVICE);
+        extstate_fd_set_kind(&dma, EXTSTATE_DMA_BUFFER);
+        CHECK(extstate_sever_fd(&dev) == true, "device fd severed");
+        CHECK(extstate_sever_fd(&dma) == true, "DMA fd severed");
+
+        CHECK(extstate_sever_fd(0) == false, "NULL flags safe");
+    }
+
     printf("\n%s (%d failure%s)\n", failures ? "FAILED" : "PASSED",
            failures, failures == 1 ? "" : "s");
     return failures ? 1 : 0;

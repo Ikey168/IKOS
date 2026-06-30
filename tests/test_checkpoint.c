@@ -15,7 +15,8 @@
  *      and ignores ordinary write faults.
  *
  * Build: gcc -I../include -o test_checkpoint test_checkpoint.c \
- *            ../kernel/checkpoint.c ../kernel/snapshot_store.c
+ *            ../kernel/checkpoint.c ../kernel/snapshot_store.c \
+ *            ../kernel/checkpoint_extstate.c
  * (checkpoint.c + snapshot_store.c are linked; this file mocks the VMM/PM
  * symbols they call.)
  */

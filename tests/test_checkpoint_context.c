@@ -6,7 +6,8 @@
  * address-space page that is checkpointed alongside it.
  *
  * Build: gcc -I../include -o test_checkpoint_context test_checkpoint_context.c \
- *            ../kernel/checkpoint.c ../kernel/snapshot_store.c
+ *            ../kernel/checkpoint.c ../kernel/snapshot_store.c \
+ *            ../kernel/checkpoint_extstate.c
  */
 
 #include <stdint.h>
