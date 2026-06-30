@@ -92,6 +92,10 @@ int checkpoint_capture_page(uint32_t pid, uint64_t virt_addr,
 /* Record flag marking a page that was read-only at checkpoint time (e.g. code).
  * Restore maps it read-only (no PAGE_WRITABLE) so it keeps its permissions. */
 #define CHECKPOINT_REC_READONLY 0x2
+/* Record flag marking a serialized kernel-state blob chunk (v2, #139), not an
+ * address-space page. Restore hands these to the kernel-state reassembler
+ * (process table, VFS, IPC, ...; #140+) rather than mapping them as memory. */
+#define CHECKPOINT_REC_KERNEL   0x4
 
 /* What writeback should do with one page of an address space, given whether its
  * region is writable and its PTE. The decision core of #131, exposed for tests. */
@@ -119,6 +123,14 @@ checkpoint_page_action_t checkpoint_page_action(bool region_writable, pte_t pte)
  * the reconstructed process (the latter in #127). Returns CHECKPOINT_OK or a
  * negative code. */
 int checkpoint_capture_context(uint32_t pid, const void* ctx, uint32_t ctx_size);
+
+/* Persist an arbitrary-size kernel-state blob (v2, #139) as one or more
+ * CHECKPOINT_REC_KERNEL records, chunked into pages and tagged with `tag` (which
+ * kernel structure it is). Each record encodes the total size and chunk index in
+ * its virt_addr field ((size << 32) | index) so the restore side can reassemble
+ * it. The writeback pass streams the records like any other. Returns
+ * CHECKPOINT_OK, or a negative code on bad input / allocation failure. */
+int checkpoint_capture_kernel_blob(uint32_t tag, const void* data, uint32_t size);
 
 /* Page-fault hook entry point. If fault_addr in `space` is a present,
  * snapshot-COW page, capture its current contents, restore writability, flush

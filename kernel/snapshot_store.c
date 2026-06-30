@@ -105,6 +105,12 @@ int snapshot_store_init(snapshot_store_t* store, fat_block_device_t* dev,
     return SNAPSHOT_OK;
 }
 
+void snapshot_store_set_version(snapshot_store_t* store, uint32_t kernel_version) {
+    if (store) {
+        store->kernel_version = kernel_version;
+    }
+}
+
 int snapshot_store_format(snapshot_store_t* store) {
     if (!store || !store->initialized) return SNAPSHOT_ERR_STATE;
 
@@ -115,6 +121,7 @@ int snapshot_store_format(snapshot_store_t* store) {
     sb.active_slot = SNAPSHOT_NO_SLOT;
     sb.epoch = 0;
     sb.slot_crc = 0;
+    sb.kernel_version = store->kernel_version;
     sb.superblock_crc = superblock_crc(&sb);
     return write_superblock(store, &sb);
 }
@@ -202,6 +209,7 @@ int snapshot_store_commit(snapshot_writer_t* writer) {
     sb.active_slot = writer->slot;
     sb.epoch = writer->epoch;
     sb.slot_crc = writer->crc;
+    sb.kernel_version = store->kernel_version;
     sb.superblock_crc = superblock_crc(&sb);
     rc = write_superblock(store, &sb);
     if (rc != SNAPSHOT_OK) return rc;
@@ -242,6 +250,9 @@ int snapshot_store_load(snapshot_store_t* store, snapshot_reader_t* reader) {
     int rc = read_superblock(store, &sb);
     if (rc != SNAPSHOT_OK) return rc;
     if (!superblock_valid(&sb)) return SNAPSHOT_ERR_NO_CHECKPOINT;
+    /* Reject a checkpoint written by a different kernel build (#139): its
+     * persisted kernel state would not match this kernel's layout. */
+    if (sb.kernel_version != store->kernel_version) return SNAPSHOT_ERR_VERSION;
     if (sb.active_slot > 1) return SNAPSHOT_ERR_NO_CHECKPOINT;
 
     uint32_t slot_base = slot_base_sector(store, sb.active_slot);
