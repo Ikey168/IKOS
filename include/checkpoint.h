@@ -140,6 +140,22 @@ void checkpoint_set_boot_store(snapshot_store_t* store);
  * Returns pages restored (>= 0) or CHECKPOINT_ERR_NO_CHECKPOINT. */
 int checkpoint_boot(void);
 
+/* ----- Periodic trigger (#117) ----- */
+
+/* Default checkpoint cadence, in timer ticks. The scheduler tick rate
+ * (TIMER_FREQUENCY) determines the wall-clock interval; callers can override. */
+#define CHECKPOINT_DEFAULT_INTERVAL_TICKS 1000
+
+/* Enable/disable automatic checkpoints and set the interval (in timer ticks).
+ * interval_ticks of 0 is treated as 1 (checkpoint every tick). */
+void checkpoint_timer_configure(bool enabled, uint64_t interval_ticks);
+
+/* Call once per timer tick (from scheduler_tick()). When enabled and the
+ * interval has elapsed, takes a checkpoint, but only if the previous one has
+ * finished writeback (epoch_open == false), so at most one checkpoint is ever
+ * in flight. Returns true if a checkpoint was taken on this tick. */
+bool checkpoint_tick(void);
+
 /* Take a checkpoint: bump the epoch, mark every live user address space, and
  * return the new epoch. Returns 0 on failure. Does no disk I/O and copies no
  * page — the bounded pause is O(mapped pages walked), not O(RAM touched). */

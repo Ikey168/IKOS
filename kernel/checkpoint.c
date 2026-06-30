@@ -20,12 +20,18 @@ static checkpoint_state_t g_checkpoint = {0};
 static checkpoint_capture_t* g_captures = 0;
 static uint64_t g_capture_count = 0;
 
+/* Periodic-trigger state (#117). */
+static bool     g_timer_enabled = false;
+static uint64_t g_timer_interval = CHECKPOINT_DEFAULT_INTERVAL_TICKS;
+static uint64_t g_timer_ticks = 0;
+
 void checkpoint_init(void) {
     g_checkpoint.current_epoch = 0;
     g_checkpoint.spaces_marked = 0;
     g_checkpoint.pages_marked = 0;
     g_checkpoint.total_takes = 0;
     g_checkpoint.epoch_open = false;
+    g_timer_ticks = 0;
     checkpoint_clear_captures();
 }
 
@@ -435,4 +441,33 @@ uint64_t checkpoint_take(void) {
     g_checkpoint.total_takes++;
     g_checkpoint.epoch_open = true;
     return epoch;
+}
+
+/* ----- Periodic trigger ----- */
+
+void checkpoint_timer_configure(bool enabled, uint64_t interval_ticks) {
+    g_timer_enabled = enabled;
+    g_timer_interval = interval_ticks ? interval_ticks : 1;
+    g_timer_ticks = 0;
+}
+
+bool checkpoint_tick(void) {
+    if (!g_timer_enabled) {
+        return false;
+    }
+
+    g_timer_ticks++;
+    if (g_timer_ticks < g_timer_interval) {
+        return false;
+    }
+
+    /* Interval elapsed. If the previous checkpoint is still being written back,
+     * don't overlap it: hold the counter at the threshold and retry next tick
+     * (so the checkpoint isn't skipped entirely, just deferred). */
+    if (g_checkpoint.epoch_open) {
+        return false;
+    }
+
+    g_timer_ticks = 0;
+    return checkpoint_take() != 0;
 }
