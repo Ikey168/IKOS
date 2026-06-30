@@ -9,7 +9,7 @@
  *
  * Build: gcc -I../include -o test_checkpoint_reconstruct \
  *            test_checkpoint_reconstruct.c ../kernel/checkpoint.c \
- *            ../kernel/snapshot_store.c
+ *            ../kernel/snapshot_store.c ../kernel/checkpoint_extstate.c
  */
 
 #include <stdint.h>

@@ -20,7 +20,8 @@
  *   test_persistence_e2e <diskfile> show          restore and print the counter
  *
  * Build: gcc -I../include -o test_persistence_e2e test_persistence_e2e.c \
- *            ../kernel/checkpoint.c ../kernel/snapshot_store.c
+ *            ../kernel/checkpoint.c ../kernel/snapshot_store.c \
+ *            ../kernel/checkpoint_extstate.c
  */
 
 #include <stdint.h>

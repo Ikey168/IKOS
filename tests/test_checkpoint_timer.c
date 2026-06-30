@@ -9,7 +9,8 @@
  *   4. Resume: after writeback closes the epoch, the next tick triggers again.
  *
  * Build: gcc -I../include -o test_checkpoint_timer test_checkpoint_timer.c \
- *            ../kernel/checkpoint.c ../kernel/snapshot_store.c
+ *            ../kernel/checkpoint.c ../kernel/snapshot_store.c \
+ *            ../kernel/checkpoint_extstate.c
  */
 
 #include <stdint.h>

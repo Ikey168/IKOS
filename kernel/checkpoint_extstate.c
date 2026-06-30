@@ -61,3 +61,35 @@ int extstate_status(const extstate_resource_t* res) {
     }
     return EXTSTATE_OK;
 }
+
+/* ----- File-descriptor integration (#128) ----- */
+
+void extstate_fd_set_kind(uint32_t* flags, extstate_kind_t kind) {
+    if (!flags) {
+        return;
+    }
+    *flags = (*flags & ~EXTSTATE_FD_KIND_MASK) |
+             (((uint32_t)kind << EXTSTATE_FD_KIND_SHIFT) & EXTSTATE_FD_KIND_MASK);
+}
+
+extstate_kind_t extstate_kind_from_fd_flags(uint32_t flags) {
+    return (extstate_kind_t)((flags & EXTSTATE_FD_KIND_MASK) >> EXTSTATE_FD_KIND_SHIFT);
+}
+
+bool extstate_sever_fd(uint32_t* flags) {
+    if (!flags) {
+        return false;
+    }
+    if (*flags & EXTSTATE_FD_SEVERED) {
+        return false; /* already severed: idempotent */
+    }
+    if (extstate_survives_checkpoint(extstate_kind_from_fd_flags(*flags))) {
+        return false; /* persistable (e.g. a regular file): leave intact */
+    }
+    *flags |= EXTSTATE_FD_SEVERED;
+    return true;
+}
+
+bool extstate_fd_is_severed(uint32_t flags) {
+    return (flags & EXTSTATE_FD_SEVERED) != 0;
+}

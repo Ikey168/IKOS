@@ -5,6 +5,7 @@
  */
 
 #include "checkpoint.h"
+#include "checkpoint_extstate.h"
 #include "process_manager.h"
 #include <stddef.h>
 
@@ -474,8 +475,14 @@ static int checkpoint_register_kernel(void* reg_ctx, const checkpoint_restored_p
         memcpy(&proc->context, rp->context, n);
     }
 
-    /* External / non-persistable handles (sockets, DMA, devices) are severed on
-     * restore; the per-fd wiring lands in #128 (extstate_sever_all). */
+    /* Sever external / non-persistable handles (sockets, DMA, devices). Their
+     * kind is tagged in each fd's flags; severed descriptors return a clean
+     * error so the app re-establishes them (#118, #128). Regular files survive. */
+    for (int i = 0; i < MAX_OPEN_FILES; i++) {
+        if (proc->fds[i].fd >= 0) {
+            extstate_sever_fd(&proc->fds[i].flags);
+        }
+    }
 
     proc->state = PROCESS_STATE_READY;
     scheduler_add_process(proc); /* process->scheduler bridge */

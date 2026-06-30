@@ -28,7 +28,8 @@ echo "==> building end-to-end harness"
 "$CC" -I"$ROOT/include" -O2 -Wall -o "$BIN" \
     "$ROOT/tests/test_persistence_e2e.c" \
     "$ROOT/kernel/checkpoint.c" \
-    "$ROOT/kernel/snapshot_store.c"
+    "$ROOT/kernel/snapshot_store.c" \
+    "$ROOT/kernel/checkpoint_extstate.c"
 
 echo
 echo "==> power cycle 1: boot fresh, count to 5"
