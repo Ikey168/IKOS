@@ -1,13 +1,18 @@
-/* Host-side unit test for the checkpoint engine core (#112).
+/* Host-side unit test for the checkpoint engine core (#112) and the
+ * page-fault capture hook (#113).
  *
- * Verifies the testable policy/walk core without the full kernel:
+ * Verifies the testable policy/walk/capture core without the full kernel:
  *   1. checkpoint_mark_pte() flips exactly the right bits and only for
  *      present+writable pages, never copying anything.
  *   2. checkpoint_mark_space() marks every writable page in writable regions,
  *      skips read-only regions/pages and unmapped pages, records the epoch,
- *      and preserves each PTE's physical frame bits.
- *   3. A second take re-marks nothing (pages are already read-only) — i.e. no
- *      eager copy and no double-work.
+ *      and preserves each PTE's physical frame bits. A second take re-marks
+ *      nothing (no eager copy / no double-work).
+ *   3. checkpoint_resolve_pte() is the exact inverse of mark.
+ *   4. checkpoint_capture_page() preserves an independent copy of the page,
+ *      tags it with the current epoch, and re-arms the PTE writable.
+ *   5. checkpoint_handle_write_fault() captures a snapshot-COW page end-to-end
+ *      and ignores ordinary write faults.
  *
  * Build: gcc -I../include -o test_checkpoint test_checkpoint.c \
  *            ../kernel/checkpoint.c
@@ -19,7 +24,17 @@
 
 /* Avoid libc headers (their <sys/types.h> ssize_t clashes with IKOS vfs.h). */
 typedef __SIZE_TYPE__ size_t;
-extern int printf(const char*, ...);
+extern int   printf(const char*, ...);
+extern void* malloc(size_t);
+extern void  free(void*);
+extern void* aligned_alloc(size_t, size_t);
+extern void* memcpy(void*, const void*, size_t);
+extern int   memcmp(const void*, const void*, size_t);
+extern void* memset(void*, int, size_t);
+
+/* checkpoint.c calls these freestanding kernel helpers; map to libc. */
+void* kmalloc(size_t s) { return malloc(s); }
+void  kfree(void* p) { free(p); }
 
 #include "checkpoint.h"   /* pulls vmm.h only — safe */
 
@@ -147,6 +162,98 @@ int main(void) {
         int marked2 = checkpoint_mark_space(&space, 8);
         CHECK(marked2 == 0, "second take marks 0 (already read-only, no eager copy)");
         CHECK(space.checkpoint_epoch == 8, "space epoch advances to 8");
+    }
+
+    /* === Test 3: resolve primitive (inverse of mark) === */
+    printf("Test 3: checkpoint_resolve_pte\n");
+    {
+        pte_t snap = PHYS_A | PAGE_PRESENT | PAGE_SNAPSHOT_COW; /* writable cleared */
+        CHECK(checkpoint_resolve_pte(&snap) == true, "snapshot page resolves");
+        CHECK((snap & PAGE_WRITABLE) != 0, "writable restored");
+        CHECK((snap & PAGE_SNAPSHOT_COW) == 0, "snapshot tag cleared");
+        CHECK((snap & ~0xFFFULL) == PHYS_A, "physical frame preserved");
+
+        pte_t plain = PHYS_B | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
+        pte_t before = plain;
+        CHECK(checkpoint_resolve_pte(&plain) == false, "non-snapshot page not resolved");
+        CHECK(plain == before, "non-snapshot PTE unchanged");
+    }
+
+    /* === Test 4: capture preserves contents and re-arms the page === */
+    printf("Test 4: checkpoint_capture_page\n");
+    {
+        checkpoint_init();
+        CHECK(checkpoint_capture_count() == 0, "init clears capture list");
+
+        uint8_t* page = (uint8_t*)aligned_alloc(PAGE_SIZE, PAGE_SIZE);
+        for (int i = 0; i < (int)PAGE_SIZE; i++) page[i] = (uint8_t)(i * 5 + 1);
+
+        pte_t pte = PHYS_A | PAGE_PRESENT | PAGE_SNAPSHOT_COW; /* marked, write-protected */
+        int rc = checkpoint_capture_page(42, 0x401000, page, &pte);
+        CHECK(rc == CHECKPOINT_OK, "capture returns OK");
+        CHECK(checkpoint_capture_count() == 1, "one capture recorded");
+
+        checkpoint_capture_t* c = checkpoint_captures();
+        CHECK(c && c->pid == 42, "capture pid correct");
+        CHECK(c && c->virt_addr == 0x401000, "capture virt_addr correct");
+        CHECK(c && c->epoch == checkpoint_current_epoch(), "capture epoch == current");
+        CHECK(c && memcmp(c->data, page, PAGE_SIZE) == 0, "captured contents match page");
+
+        /* Mutating the page after capture must not change the saved copy. */
+        page[0] ^= 0xFF;
+        CHECK(c && ((uint8_t*)c->data)[0] != page[0], "captured copy is independent");
+
+        CHECK((pte & PAGE_WRITABLE) != 0, "page re-armed writable after capture");
+        CHECK((pte & PAGE_SNAPSHOT_COW) == 0, "snapshot tag cleared after capture");
+
+        /* Capturing a non-snapshot page is a no-op error. */
+        pte_t plain = PHYS_B | PAGE_PRESENT | PAGE_WRITABLE;
+        int rc2 = checkpoint_capture_page(42, 0x402000, page, &plain);
+        CHECK(rc2 == CHECKPOINT_ERR_STATE, "non-snapshot capture rejected");
+        CHECK(checkpoint_capture_count() == 1, "rejected capture not recorded");
+
+        free(page);
+    }
+
+    /* === Test 5: page-fault hook end-to-end (real host page) === */
+    printf("Test 5: checkpoint_handle_write_fault\n");
+    {
+        checkpoint_init();
+        g_pte_count = 0; g_flushes = 0;
+
+        /* Use a real, page-aligned host buffer as the "virtual page" so the
+         * hook can read its contents at the fault address. */
+        uint8_t* page = (uint8_t*)aligned_alloc(PAGE_SIZE, PAGE_SIZE);
+        for (int i = 0; i < (int)PAGE_SIZE; i++) page[i] = (uint8_t)(i ^ 0x3C);
+        uint64_t vaddr = (uint64_t)(uintptr_t)page; /* page-aligned */
+
+        /* Map a present, snapshot-COW PTE for that page. */
+        map_pte(vaddr, PHYS_A | PAGE_PRESENT | PAGE_SNAPSHOT_COW);
+
+        vm_space_t space = {0};
+        space.owner_pid = 99;
+
+        bool handled = checkpoint_handle_write_fault(&space, vaddr + 17 /* mid-page */);
+        CHECK(handled == true, "write fault on snapshot page handled");
+        CHECK(checkpoint_capture_count() == 1, "hook recorded one capture");
+        checkpoint_capture_t* c = checkpoint_captures();
+        CHECK(c && c->pid == 99, "capture pid from space->owner_pid");
+        CHECK(c && c->virt_addr == vaddr, "capture virt_addr page-aligned");
+        CHECK(c && memcmp(c->data, page, PAGE_SIZE) == 0, "hook captured page contents");
+
+        pte_t now = *vmm_get_page_table(&space, vaddr, PT_LEVEL, false);
+        CHECK((now & PAGE_WRITABLE) && !(now & PAGE_SNAPSHOT_COW), "page writable after hook");
+        CHECK(g_flushes == 1, "TLB flushed once for the page");
+
+        /* A fault on a non-snapshot (ordinary) page is not ours. */
+        uint8_t* page2 = (uint8_t*)aligned_alloc(PAGE_SIZE, PAGE_SIZE);
+        uint64_t vaddr2 = (uint64_t)(uintptr_t)page2;
+        map_pte(vaddr2, PHYS_B | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER);
+        bool handled2 = checkpoint_handle_write_fault(&space, vaddr2);
+        CHECK(handled2 == false, "ordinary write fault not claimed by hook");
+        CHECK(checkpoint_capture_count() == 1, "no extra capture for ordinary fault");
+
+        free(page); free(page2);
     }
 
     printf("\n%s (%d failure%s)\n", failures ? "FAILED" : "PASSED",

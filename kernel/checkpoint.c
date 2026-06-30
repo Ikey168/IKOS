@@ -6,9 +6,19 @@
 
 #include "checkpoint.h"
 #include "process_manager.h"
+#include <stddef.h>
+
+/* Freestanding helpers provided by the kernel. */
+extern void* kmalloc(size_t size);
+extern void  kfree(void* ptr);
+extern void* memcpy(void* dest, const void* src, size_t size);
 
 /* Engine state. */
 static checkpoint_state_t g_checkpoint = {0};
+
+/* In-memory capture list (the "snapshot log" drained by writeback, #115). */
+static checkpoint_capture_t* g_captures = 0;
+static uint64_t g_capture_count = 0;
 
 void checkpoint_init(void) {
     g_checkpoint.current_epoch = 0;
@@ -16,6 +26,7 @@ void checkpoint_init(void) {
     g_checkpoint.pages_marked = 0;
     g_checkpoint.total_takes = 0;
     g_checkpoint.epoch_open = false;
+    checkpoint_clear_captures();
 }
 
 uint64_t checkpoint_current_epoch(void) {
@@ -45,6 +56,22 @@ bool checkpoint_mark_pte(pte_t* pte) {
      * the write to proceed. No copy happens here. */
     entry &= ~(pte_t)PAGE_WRITABLE;
     entry |= PAGE_SNAPSHOT_COW;
+    *pte = entry;
+    return true;
+}
+
+bool checkpoint_resolve_pte(pte_t* pte) {
+    if (!pte) {
+        return false;
+    }
+    pte_t entry = *pte;
+    if (!(entry & PAGE_SNAPSHOT_COW)) {
+        return false;
+    }
+    /* Restore write permission and drop the snapshot tag: the pre-write image
+     * has been captured, so the page may be written normally again. */
+    entry &= ~(pte_t)PAGE_SNAPSHOT_COW;
+    entry |= PAGE_WRITABLE;
     *pte = entry;
     return true;
 }
@@ -85,6 +112,88 @@ int checkpoint_mark_space(vm_space_t* space, uint64_t epoch) {
 
     space->checkpoint_epoch = epoch;
     return marked;
+}
+
+/* ----- Capture (page-fault hook) ----- */
+
+checkpoint_capture_t* checkpoint_captures(void) {
+    return g_captures;
+}
+
+uint64_t checkpoint_capture_count(void) {
+    return g_capture_count;
+}
+
+void checkpoint_clear_captures(void) {
+    checkpoint_capture_t* c = g_captures;
+    while (c) {
+        checkpoint_capture_t* next = c->next;
+        if (c->data) {
+            kfree(c->data);
+        }
+        kfree(c);
+        c = next;
+    }
+    g_captures = 0;
+    g_capture_count = 0;
+}
+
+int checkpoint_capture_page(uint32_t pid, uint64_t virt_addr,
+                            const void* page_contents, pte_t* pte) {
+    if (!pte || !page_contents) {
+        return CHECKPOINT_ERR_PARAM;
+    }
+    if (!(*pte & PAGE_SNAPSHOT_COW)) {
+        /* Not a snapshot page: nothing to preserve. */
+        return CHECKPOINT_ERR_STATE;
+    }
+
+    checkpoint_capture_t* rec =
+        (checkpoint_capture_t*)kmalloc(sizeof(checkpoint_capture_t));
+    if (!rec) {
+        return CHECKPOINT_ERR_PARAM;
+    }
+    rec->data = kmalloc(PAGE_SIZE);
+    if (!rec->data) {
+        kfree(rec);
+        return CHECKPOINT_ERR_PARAM;
+    }
+
+    /* Preserve the pre-write contents, then make the page writable again. */
+    memcpy(rec->data, page_contents, PAGE_SIZE);
+    rec->epoch = g_checkpoint.current_epoch;
+    rec->pid = pid;
+    rec->flags = 0;
+    rec->virt_addr = virt_addr;
+    rec->next = g_captures;
+    g_captures = rec;
+    g_capture_count++;
+
+    checkpoint_resolve_pte(pte);
+    return CHECKPOINT_OK;
+}
+
+bool checkpoint_handle_write_fault(vm_space_t* space, uint64_t fault_addr) {
+    if (!space) {
+        return false;
+    }
+    uint64_t page_addr = fault_addr & ~((uint64_t)PAGE_SIZE - 1);
+
+    pte_t* pte = vmm_get_page_table(space, page_addr, PT_LEVEL, false);
+    if (!pte || !(*pte & PAGE_PRESENT) || !(*pte & PAGE_SNAPSHOT_COW)) {
+        return false; /* not a snapshot-COW fault */
+    }
+
+    /* The faulting page is mapped at page_addr in the current address space,
+     * so its current contents are readable there. */
+    int rc = checkpoint_capture_page(space->owner_pid, page_addr,
+                                     (const void*)page_addr, pte);
+    if (rc != CHECKPOINT_OK) {
+        return false;
+    }
+
+    vmm_flush_tlb_page(page_addr);
+    return true;
 }
 
 /* ----- Take ----- */

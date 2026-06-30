@@ -5,6 +5,7 @@
 #include "memory_advanced.h"
 #include "memory.h"
 #include "process.h"
+#include "checkpoint.h"
 #include "interrupts.h"
 #include <string.h>
 #include <stdint.h>
@@ -612,9 +613,18 @@ static int handle_page_fault(uintptr_t fault_addr, uint32_t error_code, struct p
     bool is_write = (error_code & PF_WRITE) != 0;
     bool is_user = (error_code & PF_USER) != 0;
     bool is_present = !(error_code & PF_PROT);
-    
-    debug_print("Paging: Page fault at 0x%lx, error=0x%x, process=%p\n", 
+
+    debug_print("Paging: Page fault at 0x%lx, error=0x%x, process=%p\n",
                 fault_addr, error_code, process);
+
+    /* Orthogonal persistence (#113): a write to a page that checkpoint_take()
+     * marked snapshot-COW must preserve the page's pre-checkpoint contents
+     * before the write lands. The hook captures the page and restores write
+     * permission; the write then re-executes normally. */
+    if (is_write && process->address_space &&
+        checkpoint_handle_write_fault(process->address_space, fault_addr)) {
+        return 0;
+    }
     
     /* Page not present - demand loading */
     if (!is_present) {
