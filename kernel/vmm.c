@@ -97,6 +97,11 @@ vm_space_t* vmm_create_address_space(uint32_t pid) {
     
     space->pml4_phys = vmm_get_physical_addr(kernel_space, (uint64_t)space->pml4_virt);
     space->owner_pid = pid;
+
+    // No checkpoint has covered this space yet (issue #111). memset above
+    // already zeroes these, but make the initial state explicit.
+    space->checkpoint_epoch = 0;
+    space->snapshot_map_index = 0;
     
     // Initialize address space layout
     space->heap_start = USER_HEAP_BASE;
