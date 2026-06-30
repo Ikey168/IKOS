@@ -21,7 +21,7 @@
  *
  * Build: gcc -I../include -o test_persistence_e2e test_persistence_e2e.c \
  *            ../kernel/checkpoint.c ../kernel/snapshot_store.c \
- *            ../kernel/checkpoint_extstate.c
+ *            ../kernel/checkpoint_extstate.c ../kernel/checkpoint_barrier.c
  */
 
 #include <stdint.h>

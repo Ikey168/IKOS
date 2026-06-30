@@ -6,6 +6,7 @@
 
 #include "checkpoint.h"
 #include "checkpoint_extstate.h"
+#include "checkpoint_barrier.h"
 #include "process_manager.h"
 #include <stddef.h>
 
@@ -27,6 +28,10 @@ static bool     g_timer_enabled = false;
 static uint64_t g_timer_interval = CHECKPOINT_DEFAULT_INTERVAL_TICKS;
 static uint64_t g_timer_ticks = 0;
 
+/* Quiescent-point barrier (#138). The trigger arms it; the checkpoint is taken
+ * when every CPU has parked. Single CPU until SMP lands. */
+static checkpoint_barrier_t g_barrier;
+
 void checkpoint_init(void) {
     g_checkpoint.current_epoch = 0;
     g_checkpoint.spaces_marked = 0;
@@ -34,6 +39,7 @@ void checkpoint_init(void) {
     g_checkpoint.total_takes = 0;
     g_checkpoint.epoch_open = false;
     g_timer_ticks = 0;
+    checkpoint_barrier_init(&g_barrier, 1); /* single-CPU for now */
     checkpoint_clear_captures();
 }
 
@@ -635,5 +641,18 @@ bool checkpoint_tick(void) {
     }
 
     g_timer_ticks = 0;
-    return checkpoint_take() != 0;
+
+    /* Arm the quiescent-point barrier rather than taking the checkpoint inline
+     * (#138). A timer tick fires at a safe boundary (about to resume the
+     * interrupted context) with no checkpoint lock held, so this CPU can park
+     * immediately. On single-CPU IKOS that one park makes the system quiescent
+     * and the checkpoint is taken here; under SMP the other CPUs park on their
+     * own ticks and the last one to park takes it. */
+    checkpoint_barrier_arm(&g_barrier);
+    if (checkpoint_barrier_park(&g_barrier, 0 /* cpu */, true /* no lock held */)) {
+        uint64_t epoch = checkpoint_take();
+        checkpoint_barrier_release(&g_barrier);
+        return epoch != 0;
+    }
+    return false;
 }
