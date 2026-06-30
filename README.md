@@ -54,6 +54,19 @@ valid checkpoint exists, the kernel reloads it instead of cold-starting.
 
 Full design: [`docs/architecture/orthogonal-persistence.md`](docs/architecture/orthogonal-persistence.md).
 
+### Try it
+
+```bash
+# Headless proof against the real checkpoint engine (no emulator needed):
+./scripts/test/persistence_demo.sh
+
+# The real thing in QEMU (boots IKOS, cuts power, reboots, resumes):
+./scripts/test/qemu_persistence_demo.sh   # needs qemu-system-x86_64 + a built image
+```
+
+The checkpoint store can live on the volatile RAM disk (survives a warm reboot) or, for
+true power-cut durability, on a real IDE disk via `checkpoint_ide_bind`.
+
 ## ✅ What actually works vs. roadmap
 
 Being honest about maturity:
@@ -65,9 +78,12 @@ Being honest about maturity:
 | Restore + boot decision (restore vs cold boot) | ✅ implemented, unit-tested |
 | Periodic checkpoint trigger (scheduler tick) | ✅ implemented, unit-tested |
 | External-state policy (sockets/DMA/devices severed on restore) | ✅ implemented, unit-tested |
+| Context persistence + process-table/scheduler reconstruction on restore | ✅ implemented, unit-tested |
 | End-to-end "yank power" proof over a file-backed disk | ✅ passing in CI |
-| Full in-kernel boot (store wired to a block device, runnable in QEMU) | 🚧 wired and compiling; not yet booted end-to-end |
-| Process register/scheduler-state resume (runnable restored processes) | 🚧 page + address-space restore done; full process resume in progress |
+| Boot store wired to a block device (RAM disk, volatile) | ✅ implemented, unit-tested |
+| IDE-backed durable store (survives a real power cut) | 🚧 adapter implemented + unit-tested; in-kernel wiring + QEMU boot pending |
+| Process register/scheduler-state resume actually executing | 🚧 table/context restore done; scheduler bridge + QEMU boot pending |
+| In-QEMU boot demo + README GIF | 🚧 script ready; needs QEMU + a bootable image |
 | Persisting kernel-internal and driver state | 🔭 v2 (v1 cold-inits the kernel/drivers and restores user spaces on top) |
 
 The broader subsystems below describe the project's overall scope; several are partial

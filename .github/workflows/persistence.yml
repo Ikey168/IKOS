@@ -32,7 +32,7 @@ jobs:
       - name: Freestanding compile check (kernel modules)
         run: |
           set -e
-          for f in kernel/checkpoint.c kernel/snapshot_store.c kernel/checkpoint_extstate.c; do
+          for f in kernel/checkpoint.c kernel/snapshot_store.c kernel/checkpoint_extstate.c kernel/checkpoint_ide.c kernel/ramdisk.c; do
             echo "freestanding: $f"
             gcc -ffreestanding -fno-stack-protector -m64 -Iinclude -Wall -Wextra -fsyntax-only "$f"
           done
@@ -52,6 +52,7 @@ jobs:
           gcc -I../include -Wall -o /tmp/t_tm     test_checkpoint_timer.c      $K && /tmp/t_tm
           gcc -I../include -Wall -o /tmp/t_ext    test_checkpoint_extstate.c   ../kernel/checkpoint_extstate.c && /tmp/t_ext
           gcc -I../include -Wall -o /tmp/t_init   test_persistence_init.c     $KR && /tmp/t_init
+          gcc -I../include -Wall -o /tmp/t_ide    test_checkpoint_ide.c       ../kernel/checkpoint_ide.c ../kernel/snapshot_store.c && /tmp/t_ide
 
   e2e-demo:
     runs-on: ubuntu-latest
@@ -60,3 +61,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: End-to-end "yank power, it remembers" demo
         run: bash scripts/test/persistence_demo.sh
+      - name: In-QEMU boot demo (skips gracefully if QEMU is unavailable)
+        run: bash scripts/test/qemu_persistence_demo.sh
