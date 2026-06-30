@@ -25,6 +25,7 @@
 /* #include "../include/ext2.h" */ /* Commenting out due to conflicting ext2_alloc_inode definitions */
 /* #include "../include/ext2_syscalls.h" */ /* Commenting out due to header conflicts */
 #include "../include/checkpoint.h"
+#include "../include/ramdisk.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -215,16 +216,21 @@ void kernel_init(void) {
     
     kernel_print("IKOS kernel initialized successfully\n");
 
-    /* Orthogonal persistence (#119): wire the checkpoint store to a block
-     * device and arm automatic checkpoints + restore. Pass a real device here
-     * to enable persistence (e.g. ramdisk_get_device() or an IDE store region);
-     * NULL leaves it disabled so boot behavior is unchanged until the demo
-     * hardware is wired. */
+    /* Orthogonal persistence (#129): wire the checkpoint store to a block
+     * device and arm automatic checkpoints + restore. The RAM disk is used as
+     * the simplest backing store; note it is volatile, so it survives a warm
+     * reboot / QEMU snapshot but not a real power cut. Moving the store to a
+     * dedicated IDE sector region (#130) gives true non-volatile durability. */
     static snapshot_store_t persistence_store;
-    checkpoint_persistence_init(&persistence_store, /* dev = */ 0,
-                                CHECKPOINT_STORE_BASE_SECTOR,
-                                CHECKPOINT_STORE_SLOT_SECTORS,
-                                CHECKPOINT_DEFAULT_INTERVAL_TICKS);
+    fat_block_device_t* persistence_dev = ramdisk_get_device();
+    if (checkpoint_persistence_init(&persistence_store, persistence_dev,
+                                    CHECKPOINT_STORE_BASE_SECTOR,
+                                    CHECKPOINT_STORE_SLOT_SECTORS,
+                                    CHECKPOINT_DEFAULT_INTERVAL_TICKS) == CHECKPOINT_OK) {
+        kernel_print("Orthogonal persistence armed (checkpoint store ready)\n");
+    } else {
+        kernel_print("Orthogonal persistence disabled (no checkpoint store)\n");
+    }
 
     /* If a valid checkpoint exists, resume the saved address spaces instead of
      * cold-starting (#116). With no device wired above, checkpoint_boot()

@@ -42,6 +42,7 @@ jobs:
           set -e
           cd tests
           K="../kernel/checkpoint.c ../kernel/snapshot_store.c ../kernel/checkpoint_extstate.c"
+          KR="$K ../kernel/ramdisk.c"
           gcc -I../include -Wall -o /tmp/t_store  test_snapshot_store.c            && /tmp/t_store
           gcc -I../include -Wall -o /tmp/t_ckpt   test_checkpoint.c            $K && /tmp/t_ckpt
           gcc -I../include -Wall -o /tmp/t_wb     test_checkpoint_writeback.c  $K && /tmp/t_wb
@@ -50,6 +51,7 @@ jobs:
           gcc -I../include -Wall -o /tmp/t_rc     test_checkpoint_reconstruct.c $K && /tmp/t_rc
           gcc -I../include -Wall -o /tmp/t_tm     test_checkpoint_timer.c      $K && /tmp/t_tm
           gcc -I../include -Wall -o /tmp/t_ext    test_checkpoint_extstate.c   ../kernel/checkpoint_extstate.c && /tmp/t_ext
+          gcc -I../include -Wall -o /tmp/t_init   test_persistence_init.c     $KR && /tmp/t_init
 
   e2e-demo:
     runs-on: ubuntu-latest
