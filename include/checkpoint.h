@@ -55,6 +55,46 @@ bool checkpoint_mark_pte(pte_t* pte);
  * pages marked, or a negative CHECKPOINT_ERR_* code. Copies no page. */
 int checkpoint_mark_space(vm_space_t* space, uint64_t epoch);
 
+/* Inverse of checkpoint_mark_pte(): clear PAGE_SNAPSHOT_COW and restore
+ * PAGE_WRITABLE so the page is writable again. Returns true if the page was a
+ * snapshot-COW page (and was thus resolved), false otherwise. Pure; exposed
+ * for unit testing. */
+bool checkpoint_resolve_pte(pte_t* pte);
+
+/* ----- Captured pages (the in-memory "snapshot log") -----
+ *
+ * The page-fault hook copies a page's pre-write contents into a capture record
+ * before un-protecting it. The background writeback pass (#115) drains these
+ * records to the on-disk snapshot store, then calls checkpoint_clear_captures(). */
+typedef struct checkpoint_capture {
+    uint64_t epoch;       /* checkpoint epoch this page belongs to */
+    uint32_t pid;         /* owning process */
+    uint32_t flags;       /* reserved / region flags */
+    uint64_t virt_addr;   /* page-aligned virtual address */
+    void*    data;        /* PAGE_SIZE copy of the pre-write contents */
+    struct checkpoint_capture* next;
+} checkpoint_capture_t;
+
+/* Preserve a snapshot-COW page: copy page_contents into a new capture record
+ * tagged with the current epoch, then resolve *pte back to writable. Returns
+ * CHECKPOINT_OK on capture, CHECKPOINT_ERR_STATE if the PTE is not snapshot-COW,
+ * or CHECKPOINT_ERR_PARAM / a negative code on bad input or allocation failure.
+ * Exposed for unit testing; normally reached via checkpoint_handle_write_fault(). */
+int checkpoint_capture_page(uint32_t pid, uint64_t virt_addr,
+                            const void* page_contents, pte_t* pte);
+
+/* Page-fault hook entry point. If fault_addr in `space` is a present,
+ * snapshot-COW page, capture its current contents, restore writability, flush
+ * the TLB, and return true (the faulting write may now proceed). Returns false
+ * if the page is not a snapshot-COW page (the fault is someone else's). */
+bool checkpoint_handle_write_fault(vm_space_t* space, uint64_t fault_addr);
+
+/* Head of the capture list (most-recent-first), its length, and a routine to
+ * free every capture record. Used by the writeback pass (#115). */
+checkpoint_capture_t* checkpoint_captures(void);
+uint64_t checkpoint_capture_count(void);
+void checkpoint_clear_captures(void);
+
 /* Take a checkpoint: bump the epoch, mark every live user address space, and
  * return the new epoch. Returns 0 on failure. Does no disk I/O and copies no
  * page — the bounded pause is O(mapped pages walked), not O(RAM touched). */
