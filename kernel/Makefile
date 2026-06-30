@@ -45,7 +45,8 @@ C_SOURCES = scheduler.c interrupts.c scheduler_test.c kalloc.c kalloc_test.c use
             net/tls.c tls_syscalls.c \
             ext2.c ext2_syscalls.c \
             usb.c usb_hid.c usb_uhci.c usb_control.c usb_syscalls.c usb_test.c usb_integration.c \
-            audio.c audio_ac97.c audio_syscalls.c audio_user.c
+            audio.c audio_ac97.c audio_syscalls.c audio_user.c \
+            snapshot_store.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 
