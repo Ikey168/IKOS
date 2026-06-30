@@ -141,8 +141,35 @@ typedef int (*checkpoint_apply_fn)(void* ctx, const snapshot_page_record_t* rec)
  * code on error. Pure orchestration: all VMM/process work happens in apply(). */
 int checkpoint_restore(snapshot_store_t* store, checkpoint_apply_fn apply, void* ctx);
 
-/* Boot adapter: run checkpoint_restore() with the built-in kernel apply, which
- * recreates an address space per pid and maps each restored page into it.
+/* Max bytes of saved CPU context carried per reconstructed process (a
+ * process_context_t is ~164 bytes; this leaves headroom). */
+#define CHECKPOINT_CONTEXT_MAX 256
+
+/* One process reassembled from a checkpoint: its address space, its saved CPU
+ * context (if a context record was present), and its pid. Built up as records
+ * are replayed, then handed to a registration callback (#127). */
+typedef struct {
+    uint32_t    pid;
+    vm_space_t* space;                        /* NULL if the process had no pages */
+    uint8_t     context[CHECKPOINT_CONTEXT_MAX];
+    uint32_t    context_size;                 /* bytes of context actually saved */
+    bool        has_context;
+} checkpoint_restored_process_t;
+
+/* Called once per reconstructed process to register it (process table +
+ * scheduler) and apply its saved context. Return CHECKPOINT_OK to continue. */
+typedef int (*checkpoint_register_fn)(void* reg_ctx, const checkpoint_restored_process_t* proc);
+
+/* Invoke `reg` for each reconstructed process. Returns the number registered
+ * (>= 0), or a negative code if a callback fails. Pure iteration: the kernel
+ * vs. test registration logic lives entirely in `reg`. */
+int checkpoint_finalize_restore(const checkpoint_restored_process_t* procs, int count,
+                                checkpoint_register_fn reg, void* reg_ctx);
+
+/* Boot adapter: run checkpoint_restore() with the built-in kernel apply (which
+ * recreates an address space per pid, maps each restored page, and collects
+ * each process's saved context), then checkpoint_finalize_restore() with the
+ * built-in kernel registrar (process table + scheduler + context apply).
  * Returns the number of pages restored (>= 0) or CHECKPOINT_ERR_NO_CHECKPOINT. */
 int checkpoint_restore_boot(snapshot_store_t* store);
 

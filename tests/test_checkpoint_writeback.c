@@ -50,6 +50,11 @@ int pm_get_process_list(uint32_t* p, uint32_t m, uint32_t* c) {
     (void)p; (void)m; if (c) *c = 0; return 0;
 }
 struct process* pm_get_process(uint32_t pid) { (void)pid; return 0; }
+/* Process-reconstruction stubs (checkpoint_register_kernel, unused here). */
+struct process* process_get_by_pid(int pid) { (void)pid; return 0; }
+struct process* process_create(const char* a, const char* b) { (void)a; (void)b; return 0; }
+int pm_table_add_process(struct process* p) { (void)p; return 0; }
+int scheduler_add_process(struct process* p) { (void)p; return 0; }
 
 /* ----- In-memory mock block device ----- */
 #define MOCK_SECTORS 4096

@@ -46,6 +46,7 @@ jobs:
           gcc -I../include -Wall -o /tmp/t_wb     test_checkpoint_writeback.c ../kernel/checkpoint.c ../kernel/snapshot_store.c && /tmp/t_wb
           gcc -I../include -Wall -o /tmp/t_rs     test_checkpoint_restore.c   ../kernel/checkpoint.c ../kernel/snapshot_store.c && /tmp/t_rs
           gcc -I../include -Wall -o /tmp/t_ctx    test_checkpoint_context.c   ../kernel/checkpoint.c ../kernel/snapshot_store.c && /tmp/t_ctx
+          gcc -I../include -Wall -o /tmp/t_rc     test_checkpoint_reconstruct.c ../kernel/checkpoint.c ../kernel/snapshot_store.c && /tmp/t_rc
           gcc -I../include -Wall -o /tmp/t_tm     test_checkpoint_timer.c     ../kernel/checkpoint.c ../kernel/snapshot_store.c && /tmp/t_tm
           gcc -I../include -Wall -o /tmp/t_ext    test_checkpoint_extstate.c  ../kernel/checkpoint_extstate.c                    && /tmp/t_ext
 

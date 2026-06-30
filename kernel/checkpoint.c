@@ -361,47 +361,74 @@ int checkpoint_restore(snapshot_store_t* store, checkpoint_apply_fn apply, void*
     return restored;
 }
 
-/* ----- Boot adapter: reconstruct address spaces from a checkpoint ----- */
+/* ----- Restore finalize (generic) ----- */
 
-/* Small pid -> restored-space table built up as pages are replayed. */
-#define CHECKPOINT_RESTORE_MAX_SPACES 64
+int checkpoint_finalize_restore(const checkpoint_restored_process_t* procs, int count,
+                                checkpoint_register_fn reg, void* reg_ctx) {
+    if (!procs || !reg) {
+        return CHECKPOINT_ERR_PARAM;
+    }
+    int registered = 0;
+    for (int i = 0; i < count; i++) {
+        int r = reg(reg_ctx, &procs[i]);
+        if (r != CHECKPOINT_OK) {
+            return r;
+        }
+        registered++;
+    }
+    return registered;
+}
+
+/* ----- Boot adapter: reconstruct processes from a checkpoint ----- */
+
+/* pid -> reconstructed process, built up as records (pages + context) replay. */
+#define CHECKPOINT_RESTORE_MAX_PROCS 64
 typedef struct {
-    uint32_t pids[CHECKPOINT_RESTORE_MAX_SPACES];
-    vm_space_t* spaces[CHECKPOINT_RESTORE_MAX_SPACES];
+    checkpoint_restored_process_t procs[CHECKPOINT_RESTORE_MAX_PROCS];
     int count;
 } checkpoint_restore_ctx_t;
 
-static vm_space_t* restore_space_for(checkpoint_restore_ctx_t* c, uint32_t pid) {
+static checkpoint_restored_process_t* restore_entry_for(checkpoint_restore_ctx_t* c,
+                                                        uint32_t pid) {
     for (int i = 0; i < c->count; i++) {
-        if (c->pids[i] == pid) {
-            return c->spaces[i];
+        if (c->procs[i].pid == pid) {
+            return &c->procs[i];
         }
     }
-    if (c->count >= CHECKPOINT_RESTORE_MAX_SPACES) {
+    if (c->count >= CHECKPOINT_RESTORE_MAX_PROCS) {
         return 0;
     }
-    vm_space_t* space = vmm_create_address_space(pid);
-    if (!space) {
-        return 0;
-    }
-    c->pids[c->count] = pid;
-    c->spaces[c->count] = space;
-    c->count++;
-    return space;
+    checkpoint_restored_process_t* e = &c->procs[c->count++];
+    e->pid = pid;
+    e->space = 0;
+    e->context_size = 0;
+    e->has_context = false;
+    return e;
 }
 
 static int checkpoint_restore_apply_kernel(void* ctx, const snapshot_page_record_t* rec) {
     checkpoint_restore_ctx_t* c = (checkpoint_restore_ctx_t*)ctx;
 
-    /* Context records are process CPU state, not memory: applying them to the
-     * reconstructed process_t happens in #127. Skip mapping them as pages. */
+    checkpoint_restored_process_t* e = restore_entry_for(c, rec->pid);
+    if (!e) {
+        return CHECKPOINT_ERR_PARAM;
+    }
+
+    /* Context records carry CPU state, not memory: stash them on the process
+     * entry for the finalize/register step rather than mapping a page. */
     if (rec->flags & CHECKPOINT_REC_CONTEXT) {
+        memcpy(e->context, rec->page_data, CHECKPOINT_CONTEXT_MAX);
+        e->context_size = CHECKPOINT_CONTEXT_MAX;
+        e->has_context = true;
         return CHECKPOINT_OK;
     }
 
-    vm_space_t* space = restore_space_for(c, rec->pid);
-    if (!space) {
-        return CHECKPOINT_ERR_PARAM;
+    /* Page record: ensure the process has an address space, then map it. */
+    if (!e->space) {
+        e->space = vmm_create_address_space(rec->pid);
+        if (!e->space) {
+            return CHECKPOINT_ERR_PARAM;
+        }
     }
 
     uint64_t phys = vmm_alloc_page();
@@ -413,22 +440,60 @@ static int checkpoint_restore_apply_kernel(void* ctx, const snapshot_page_record
      * vmm.c uses); load the checkpointed page contents into the new frame. */
     memcpy((void*)phys, rec->page_data, PAGE_SIZE);
 
-    if (vmm_map_page(space, rec->virt_addr, phys,
+    if (vmm_map_page(e->space, rec->virt_addr, phys,
                      PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER) != 0) {
         return CHECKPOINT_ERR_PARAM;
     }
+    return CHECKPOINT_OK;
+}
 
-    /* Page reconstruction only. External / non-persistable handles (sockets,
-     * DMA, devices) are severed per restored process via extstate_sever_all()
-     * (checkpoint_extstate.h, #118); that runs when #119 reconstructs the
-     * process table, since fds live on the process, not on a page. */
+/* Kernel registrar: put each reconstructed process into the process table with
+ * its restored address space and CPU context, mark it runnable, and hand it to
+ * the scheduler. */
+extern int scheduler_add_process(process_t* proc);
+
+static int checkpoint_register_kernel(void* reg_ctx, const checkpoint_restored_process_t* rp) {
+    (void)reg_ctx;
+
+    process_t* proc = process_get_by_pid((pid_t)rp->pid);
+    if (!proc) {
+        proc = process_create("restored", "");
+        if (!proc) {
+            return CHECKPOINT_ERR_PARAM;
+        }
+        proc->pid = (pid_t)rp->pid;
+        pm_table_add_process(proc);
+    }
+
+    if (rp->space) {
+        proc->address_space = rp->space;
+    }
+    if (rp->has_context) {
+        uint32_t n = rp->context_size < sizeof(proc->context)
+                         ? rp->context_size : (uint32_t)sizeof(proc->context);
+        memcpy(&proc->context, rp->context, n);
+    }
+
+    /* External / non-persistable handles (sockets, DMA, devices) are severed on
+     * restore; the per-fd wiring lands in #128 (extstate_sever_all). */
+
+    proc->state = PROCESS_STATE_READY;
+    scheduler_add_process(proc); /* process->scheduler bridge */
     return CHECKPOINT_OK;
 }
 
 int checkpoint_restore_boot(snapshot_store_t* store) {
     checkpoint_restore_ctx_t ctx;
     ctx.count = 0;
-    return checkpoint_restore(store, checkpoint_restore_apply_kernel, &ctx);
+
+    int restored = checkpoint_restore(store, checkpoint_restore_apply_kernel, &ctx);
+    if (restored < 0) {
+        return restored; /* CHECKPOINT_ERR_NO_CHECKPOINT or another error */
+    }
+
+    /* Register every reconstructed process (table + scheduler + context). */
+    checkpoint_finalize_restore(ctx.procs, ctx.count, checkpoint_register_kernel, 0);
+    return restored;
 }
 
 /* ----- Boot-store registration ----- */
