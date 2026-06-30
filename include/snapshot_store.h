@@ -44,6 +44,7 @@
 #define SNAPSHOT_ERR_NO_CHECKPOINT -5 /* no valid checkpoint on disk */
 #define SNAPSHOT_ERR_CRC         -6   /* CRC mismatch (corrupt slot/superblock) */
 #define SNAPSHOT_ERR_STATE       -7   /* called in the wrong order */
+#define SNAPSHOT_ERR_VERSION     -8   /* checkpoint's kernel-version stamp mismatches */
 
 /* ----- On-disk structures (each lives in its own 512-byte sector) ----- */
 
@@ -53,7 +54,7 @@ typedef struct {
     uint32_t active_slot;      /* 0, 1, or SNAPSHOT_NO_SLOT */
     uint64_t epoch;            /* epoch stored in the active slot */
     uint32_t slot_crc;         /* crc32 of the active slot's record sectors */
-    uint32_t reserved;
+    uint32_t kernel_version;   /* kernel build stamp; restore rejects a mismatch (#139) */
     uint32_t superblock_crc;   /* crc32 over all preceding bytes of this struct */
 } snapshot_superblock_t;
 
@@ -83,6 +84,7 @@ typedef struct {
     uint32_t base_sector;      /* sector of the superblock */
     uint32_t slot_sectors;     /* sectors reserved for each slot */
     uint32_t max_records;      /* derived: (slot_sectors - 1) / 9 */
+    uint32_t kernel_version;   /* expected kernel build stamp (#139); 0 by default */
     bool     initialized;
 } snapshot_store_t;
 
@@ -123,6 +125,13 @@ typedef struct {
  * one page record fits. Does not write anything. */
 int snapshot_store_init(snapshot_store_t* store, fat_block_device_t* dev,
                         uint32_t base_sector, uint32_t slot_sectors);
+
+/* Stamp the store with the running kernel's build version (#139). It is written
+ * into the superblock on format/commit, and snapshot_store_load() rejects a
+ * checkpoint whose stamp differs (SNAPSHOT_ERR_VERSION), so a kernel upgrade
+ * invalidates old checkpoints instead of restoring incompatible kernel state.
+ * Defaults to 0 if never called (matches an unstamped store). */
+void snapshot_store_set_version(snapshot_store_t* store, uint32_t kernel_version);
 
 /* Write a fresh, empty superblock marking "no valid checkpoint". Use once
  * when provisioning a brand-new store. */

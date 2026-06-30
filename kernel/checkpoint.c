@@ -232,6 +232,42 @@ int checkpoint_capture_context(uint32_t pid, const void* ctx, uint32_t ctx_size)
     return CHECKPOINT_OK;
 }
 
+int checkpoint_capture_kernel_blob(uint32_t tag, const void* data, uint32_t size) {
+    if (!data || size == 0) {
+        return CHECKPOINT_ERR_PARAM;
+    }
+    const uint8_t* p = (const uint8_t*)data;
+    uint32_t chunks = (size + PAGE_SIZE - 1) / PAGE_SIZE;
+
+    for (uint32_t i = 0; i < chunks; i++) {
+        checkpoint_capture_t* rec =
+            (checkpoint_capture_t*)kmalloc(sizeof(checkpoint_capture_t));
+        if (!rec) {
+            return CHECKPOINT_ERR_PARAM;
+        }
+        rec->data = kmalloc(PAGE_SIZE);
+        if (!rec->data) {
+            kfree(rec);
+            return CHECKPOINT_ERR_PARAM;
+        }
+
+        uint32_t off = i * PAGE_SIZE;
+        uint32_t n = (size - off) < PAGE_SIZE ? (size - off) : PAGE_SIZE;
+        memset(rec->data, 0, PAGE_SIZE);
+        memcpy(rec->data, p + off, n);
+
+        rec->epoch = g_checkpoint.current_epoch;
+        rec->pid = tag;
+        rec->flags = CHECKPOINT_REC_KERNEL;
+        /* Self-describing: total size in the high 32 bits, chunk index in the low. */
+        rec->virt_addr = ((uint64_t)size << 32) | (uint64_t)i;
+        rec->next = g_captures;
+        g_captures = rec;
+        g_capture_count++;
+    }
+    return CHECKPOINT_OK;
+}
+
 bool checkpoint_handle_write_fault(vm_space_t* space, uint64_t fault_addr) {
     if (!space) {
         return false;
@@ -447,6 +483,12 @@ static int checkpoint_restore_apply_kernel(void* ctx, const snapshot_page_record
         memcpy(e->context, rec->page_data, CHECKPOINT_CONTEXT_MAX);
         e->context_size = CHECKPOINT_CONTEXT_MAX;
         e->has_context = true;
+        return CHECKPOINT_OK;
+    }
+
+    /* Kernel-state blob chunks are reassembled by the kernel-state restorers
+     * (#140+); the page-restore path skips them. */
+    if (rec->flags & CHECKPOINT_REC_KERNEL) {
         return CHECKPOINT_OK;
     }
 
