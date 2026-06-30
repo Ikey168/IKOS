@@ -1,14 +1,85 @@
 # IKOS Operating System
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)]()
+[![Orthogonal Persistence](https://github.com/Ikey168/IKOS/actions/workflows/persistence.yml/badge.svg)](https://github.com/Ikey168/IKOS/actions/workflows/persistence.yml)
 [![Architecture](https://img.shields.io/badge/Architecture-x86__64-blue.svg)]()
 [![Kernel](https://img.shields.io/badge/Kernel-Microkernel-orange.svg)]()
 
+> **IKOS is a microkernel with orthogonal persistence: no save, no load, no shutdown.**
+> The entire running system is the durable state. Pull the power cord, plug it back
+> in, and your work is exactly where you left it, mid-instruction.
+
+This is a real, proven idea (KeyKOS, EROS, Phantom OS; IBM i's single-level store in
+production) that **no other hobby-tier microkernel implements**. It is IKOS's reason to
+exist, and it rides directly on the kernel's copy-on-write virtual memory.
+
+## ⚡ The headline: pull the plug, keep your work
+
+A program does **nothing special** to be durable. The counter below has no `save()`,
+no `load()`, no serialization. The OS checkpoints the whole system periodically and
+resumes from the last checkpoint on boot:
+
+```c
+/* user/persistent_counter.c - the entire persistence "logic" */
+uint64_t counter = 0;
+for (;;) { counter++; print_u64(counter); yield(); }
+```
+
+The end-to-end demo (`scripts/test/persistence_demo.sh`) proves it against the real
+checkpoint engine and on-disk store, modeling a power cut as a process restart:
+
+```
+==> power cycle 1: boot fresh, count to 5
+  [run] counter now = 5 (then 'power is cut')
+==> reboot: counter must have survived at 5
+  [verify] counter = 5  == expected 5  -> REMEMBERED
+==> power cycle 2: count 5 more (resumes from 5)
+  [run] counter now = 10 (then 'power is cut')
+==> reboot: counter must have survived at 10
+  [verify] counter = 10  == expected 10  -> REMEMBERED
+==> crash test: cut power MID-RUN (kill -9), then reboot
+  [crash] reloaded a valid checkpoint; counter = 3903 (>= 10, monotonic)
+PASSED: the counter remembered itself across every power cycle
+```
+
+### How it works
+
+A checkpoint marks every writable page read-only and copy-on-write (cheap; it copies
+nothing). The first write to a marked page faults, and the kernel preserves the page's
+pre-checkpoint contents before letting the write proceed. A background pass streams
+those pages into the **inactive** one of two on-disk slots; a single superblock-sector
+write flips the active slot and is the only commit point, so a crash before the flip
+always leaves the previous checkpoint intact (CRC32 guards every slot). On boot, if a
+valid checkpoint exists, the kernel reloads it instead of cold-starting.
+
+Full design: [`docs/architecture/orthogonal-persistence.md`](docs/architecture/orthogonal-persistence.md).
+
+## ✅ What actually works vs. roadmap
+
+Being honest about maturity:
+
+| Area | Status |
+|------|--------|
+| Orthogonal persistence: snapshot store (double-buffered slots + CRC) | ✅ implemented, unit-tested |
+| Checkpoint engine: stop-the-world COW marking, page-fault capture, writeback | ✅ implemented, unit-tested |
+| Restore + boot decision (restore vs cold boot) | ✅ implemented, unit-tested |
+| Periodic checkpoint trigger (scheduler tick) | ✅ implemented, unit-tested |
+| External-state policy (sockets/DMA/devices severed on restore) | ✅ implemented, unit-tested |
+| End-to-end "yank power" proof over a file-backed disk | ✅ passing in CI |
+| Full in-kernel boot (store wired to a block device, runnable in QEMU) | 🚧 wired and compiling; not yet booted end-to-end |
+| Process register/scheduler-state resume (runnable restored processes) | 🚧 page + address-space restore done; full process resume in progress |
+| Persisting kernel-internal and driver state | 🔭 v2 (v1 cold-inits the kernel/drivers and restores user spaces on top) |
+
+The broader subsystems below describe the project's overall scope; several are partial
+or aspirational. The persistence stack is the part with end-to-end tests and CI today.
+
 ## About
 
-**IKOS** is a modern, **microkernel-based operating system** designed from the ground up for **x86/x86_64 consumer devices** (desktops, laptops, embedded systems). Built with performance, modularity, and security in mind, IKOS features a comprehensive ecosystem including:
+**IKOS** is a **microkernel-based operating system** for **x86/x86_64 consumer devices**
+(desktops, laptops, embedded systems), organized around the orthogonal-persistence thesis
+above. Alongside it the project includes:
 
+- ♾️ **Orthogonal Persistence** with periodic system checkpoints and resume-on-boot
 - 🚀 **Custom Multi-Stage Bootloader** with real mode to long mode transition
 - 🧠 **Advanced Virtual Memory Manager (VMM)** with copy-on-write and demand paging
 - 💬 **Message-Passing IPC** for secure inter-process communication
@@ -192,6 +263,9 @@ IKOS provides multiple build targets for different components:
 ```bash
 # Complete system test
 make test
+
+# Orthogonal persistence: "yank power, it remembers" end-to-end demo
+./scripts/test/persistence_demo.sh       # checkpoint/restore over a power cycle
 
 # Component-specific tests
 ./scripts/test/test_audio_system.sh      # Audio system validation
