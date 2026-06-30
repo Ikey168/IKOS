@@ -37,6 +37,8 @@
 #define PAGE_DIRTY          0x040   /* Page has been written to */
 #define PAGE_LARGE          0x080   /* Large page (2MB for PD entries) */
 #define PAGE_GLOBAL         0x100   /* Global page (not flushed on CR3 reload) */
+/* Bits 9-11 are available for software use and ignored by the CPU. */
+#define PAGE_SNAPSHOT_COW   0x200   /* Page is copy-on-write for a checkpoint snapshot (issue #111) */
 #define PAGE_NX             0x8000000000000000ULL /* No-execute bit */
 #define PAGE_NO_EXECUTE     0x8000000000000000ULL /* NX bit */
 
@@ -106,6 +108,8 @@ typedef struct vm_space {
     uint32_t region_count;          /* Number of regions */
     uint32_t page_count;            /* Number of allocated pages */
     uint32_t owner_pid;             /* Process ID */
+    uint64_t checkpoint_epoch;      /* Checkpoint epoch this space was last marked at (issue #111) */
+    uint64_t snapshot_map_index;    /* Index/ref into the on-disk snapshot map (0 = none yet) */
 } vm_space_t;
 
 /* Page fault information */
