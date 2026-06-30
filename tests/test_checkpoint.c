@@ -69,6 +69,11 @@ void vmm_flush_tlb_page(uint64_t virt_addr) { (void)virt_addr; g_flushes++; }
 uint64_t vmm_get_physical_addr(vm_space_t* space, uint64_t virt_addr) {
     (void)space; (void)virt_addr; return 0; /* clean-page walk unused here */
 }
+vm_space_t* vmm_create_address_space(uint32_t pid) { (void)pid; return 0; }
+uint64_t vmm_alloc_page(void) { return 0; }
+int vmm_map_page(vm_space_t* s, uint64_t v, uint64_t p, uint32_t f) {
+    (void)s; (void)v; (void)p; (void)f; return 0; /* restore path unused here */
+}
 
 /* ----- Stubs so checkpoint.c links (checkpoint_take path, unused here) ----- */
 struct process;

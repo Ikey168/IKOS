@@ -21,10 +21,11 @@
 #include "snapshot_store.h" /* snapshot_store_t (writeback target) */
 
 /* Error codes (negative); non-negative returns are counts/epochs. */
-#define CHECKPOINT_OK         0
-#define CHECKPOINT_ERR_PARAM -1
-#define CHECKPOINT_ERR_STATE -2
-#define CHECKPOINT_ERR_IO    -3
+#define CHECKPOINT_OK             0
+#define CHECKPOINT_ERR_PARAM     -1
+#define CHECKPOINT_ERR_STATE     -2
+#define CHECKPOINT_ERR_IO        -3
+#define CHECKPOINT_ERR_NO_CHECKPOINT -4  /* no valid checkpoint on disk: cold boot */
 
 /* Engine state, observable for tests, stats, and the writeback pass. */
 typedef struct {
@@ -109,6 +110,35 @@ void checkpoint_clear_captures(void);
  * superblock (the single commit point). On success the capture list is freed
  * and the epoch is closed. Returns CHECKPOINT_OK or a negative code. */
 int checkpoint_writeback(snapshot_store_t* store);
+
+/* ----- Restore (#116) -----
+ *
+ * Called once for each page of the loaded checkpoint, in slot order. The
+ * record's page_data points at a reusable buffer owned by the restore loop;
+ * copy out anything that must outlive the call. Return CHECKPOINT_OK to
+ * continue or a negative code to abort the restore. */
+typedef int (*checkpoint_apply_fn)(void* ctx, const snapshot_page_record_t* rec);
+
+/* Load the latest valid checkpoint and replay every page through apply().
+ * Restores the global epoch to the checkpoint's epoch on success. Returns the
+ * number of pages restored (>= 0), CHECKPOINT_ERR_NO_CHECKPOINT if the store
+ * holds no valid checkpoint (the caller should cold-boot), or another negative
+ * code on error. Pure orchestration: all VMM/process work happens in apply(). */
+int checkpoint_restore(snapshot_store_t* store, checkpoint_apply_fn apply, void* ctx);
+
+/* Boot adapter: run checkpoint_restore() with the built-in kernel apply, which
+ * recreates an address space per pid and maps each restored page into it.
+ * Returns the number of pages restored (>= 0) or CHECKPOINT_ERR_NO_CHECKPOINT. */
+int checkpoint_restore_boot(snapshot_store_t* store);
+
+/* Register the store the boot path restores from. Until one is set,
+ * checkpoint_boot() reports "no checkpoint" and the kernel cold-boots. */
+void checkpoint_set_boot_store(snapshot_store_t* store);
+
+/* Boot-time entry point invoked from kernel_init(): restore from the
+ * registered boot store if one is configured, else signal a cold boot.
+ * Returns pages restored (>= 0) or CHECKPOINT_ERR_NO_CHECKPOINT. */
+int checkpoint_boot(void);
 
 /* Take a checkpoint: bump the epoch, mark every live user address space, and
  * return the new epoch. Returns 0 on failure. Does no disk I/O and copies no

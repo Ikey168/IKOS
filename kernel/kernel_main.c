@@ -24,6 +24,7 @@
 #include "../include/net/tls.h"
 /* #include "../include/ext2.h" */ /* Commenting out due to conflicting ext2_alloc_inode definitions */
 /* #include "../include/ext2_syscalls.h" */ /* Commenting out due to header conflicts */
+#include "../include/checkpoint.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -213,9 +214,19 @@ void kernel_init(void) {
     /* vfs_init(); */
     
     kernel_print("IKOS kernel initialized successfully\n");
-    
+
+    /* Orthogonal persistence (#116): if a valid checkpoint exists, resume the
+     * saved address spaces instead of cold-starting. Until a boot store is
+     * registered (#119 wires the block device), checkpoint_boot() reports no
+     * checkpoint and we fall through to the normal cold boot below. */
+    int restored = checkpoint_boot();
+    if (restored >= 0) {
+        kernel_print("Resumed %d page(s) from last checkpoint\n", restored);
+        return; /* restored system is live; no fresh init process */
+    }
+
     /* Start init process - Issue #17 */
-    kernel_print("Starting init process...\n");
+    kernel_print("No valid checkpoint; cold boot. Starting init process...\n");
     int32_t init_pid = start_init_process();
     if (init_pid > 0) {
         kernel_print("Init process started successfully (PID %d)\n", init_pid);

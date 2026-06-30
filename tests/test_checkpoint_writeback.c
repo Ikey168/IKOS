@@ -40,6 +40,11 @@ pte_t* vmm_get_page_table(vm_space_t* s, uint64_t a, int l, bool c) {
 vm_space_t* vmm_get_current_space(void) { return 0; }
 void vmm_flush_tlb_page(uint64_t a) { (void)a; }
 uint64_t vmm_get_physical_addr(vm_space_t* s, uint64_t a) { (void)s; (void)a; return 0; }
+vm_space_t* vmm_create_address_space(uint32_t pid) { (void)pid; return 0; }
+uint64_t vmm_alloc_page(void) { return 0; }
+int vmm_map_page(vm_space_t* s, uint64_t v, uint64_t p, uint32_t f) {
+    (void)s; (void)v; (void)p; (void)f; return 0;
+}
 struct process;
 int pm_get_process_list(uint32_t* p, uint32_t m, uint32_t* c) {
     (void)p; (void)m; if (c) *c = 0; return 0;

@@ -286,6 +286,121 @@ int checkpoint_writeback(snapshot_store_t* store) {
     return CHECKPOINT_OK;
 }
 
+/* ----- Restore ----- */
+
+int checkpoint_restore(snapshot_store_t* store, checkpoint_apply_fn apply, void* ctx) {
+    if (!store || !apply) {
+        return CHECKPOINT_ERR_PARAM;
+    }
+
+    snapshot_reader_t reader;
+    int rc = snapshot_store_load(store, &reader);
+    if (rc != SNAPSHOT_OK) {
+        /* No valid checkpoint (or corrupt): the caller should cold-boot. */
+        return CHECKPOINT_ERR_NO_CHECKPOINT;
+    }
+
+    uint8_t* buf = (uint8_t*)kmalloc(PAGE_SIZE);
+    if (!buf) {
+        return CHECKPOINT_ERR_PARAM;
+    }
+
+    int restored = 0;
+    snapshot_page_record_t rec;
+    rec.page_data = buf;
+    while (snapshot_reader_next(&reader, &rec) == SNAPSHOT_OK) {
+        rc = apply(ctx, &rec);
+        if (rc != CHECKPOINT_OK) {
+            kfree(buf);
+            return rc;
+        }
+        restored++;
+    }
+    kfree(buf);
+
+    /* Resume at the checkpoint's epoch so the next take() advances from there. */
+    g_checkpoint.current_epoch = reader.epoch;
+    g_checkpoint.epoch_open = false;
+    return restored;
+}
+
+/* ----- Boot adapter: reconstruct address spaces from a checkpoint ----- */
+
+/* Small pid -> restored-space table built up as pages are replayed. */
+#define CHECKPOINT_RESTORE_MAX_SPACES 64
+typedef struct {
+    uint32_t pids[CHECKPOINT_RESTORE_MAX_SPACES];
+    vm_space_t* spaces[CHECKPOINT_RESTORE_MAX_SPACES];
+    int count;
+} checkpoint_restore_ctx_t;
+
+static vm_space_t* restore_space_for(checkpoint_restore_ctx_t* c, uint32_t pid) {
+    for (int i = 0; i < c->count; i++) {
+        if (c->pids[i] == pid) {
+            return c->spaces[i];
+        }
+    }
+    if (c->count >= CHECKPOINT_RESTORE_MAX_SPACES) {
+        return 0;
+    }
+    vm_space_t* space = vmm_create_address_space(pid);
+    if (!space) {
+        return 0;
+    }
+    c->pids[c->count] = pid;
+    c->spaces[c->count] = space;
+    c->count++;
+    return space;
+}
+
+static int checkpoint_restore_apply_kernel(void* ctx, const snapshot_page_record_t* rec) {
+    checkpoint_restore_ctx_t* c = (checkpoint_restore_ctx_t*)ctx;
+
+    vm_space_t* space = restore_space_for(c, rec->pid);
+    if (!space) {
+        return CHECKPOINT_ERR_PARAM;
+    }
+
+    uint64_t phys = vmm_alloc_page();
+    if (!phys) {
+        return CHECKPOINT_ERR_PARAM;
+    }
+
+    /* Physical frames are directly addressable in the kernel (same convention
+     * vmm.c uses); load the checkpointed page contents into the new frame. */
+    memcpy((void*)phys, rec->page_data, PAGE_SIZE);
+
+    if (vmm_map_page(space, rec->virt_addr, phys,
+                     PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER) != 0) {
+        return CHECKPOINT_ERR_PARAM;
+    }
+
+    /* External / non-persistable state (sockets, DMA, devices) is re-attached
+     * as severed here; the policy lands in #118. */
+    return CHECKPOINT_OK;
+}
+
+int checkpoint_restore_boot(snapshot_store_t* store) {
+    checkpoint_restore_ctx_t ctx;
+    ctx.count = 0;
+    return checkpoint_restore(store, checkpoint_restore_apply_kernel, &ctx);
+}
+
+/* ----- Boot-store registration ----- */
+
+static snapshot_store_t* g_boot_store = 0;
+
+void checkpoint_set_boot_store(snapshot_store_t* store) {
+    g_boot_store = store;
+}
+
+int checkpoint_boot(void) {
+    if (!g_boot_store) {
+        return CHECKPOINT_ERR_NO_CHECKPOINT; /* nothing configured: cold boot */
+    }
+    return checkpoint_restore_boot(g_boot_store);
+}
+
 /* ----- Take ----- */
 
 uint64_t checkpoint_take(void) {
