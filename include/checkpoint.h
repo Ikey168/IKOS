@@ -89,6 +89,25 @@ int checkpoint_capture_page(uint32_t pid, uint64_t virt_addr,
 /* Capture-record flag (carried in snapshot_page_record_t.flags) marking a
  * record as a process CPU context blob rather than an address-space page. */
 #define CHECKPOINT_REC_CONTEXT  0x1
+/* Record flag marking a page that was read-only at checkpoint time (e.g. code).
+ * Restore maps it read-only (no PAGE_WRITABLE) so it keeps its permissions. */
+#define CHECKPOINT_REC_READONLY 0x2
+
+/* What writeback should do with one page of an address space, given whether its
+ * region is writable and its PTE. The decision core of #131, exposed for tests. */
+typedef enum {
+    CHECKPOINT_PAGE_SKIP       = 0, /* not present, or modified (already captured) */
+    CHECKPOINT_PAGE_PERSIST_RW = 1, /* clean writable page: persist, map writable */
+    CHECKPOINT_PAGE_PERSIST_RO = 2, /* read-only page (code): persist, map read-only */
+} checkpoint_page_action_t;
+
+/* Decide how to persist a page during writeback:
+ *  - not present                       -> SKIP
+ *  - writable region + snapshot-COW set -> PERSIST_RW (clean, unmodified)
+ *  - writable region + tag cleared      -> SKIP (modified: streamed via its capture)
+ *  - read-only region                   -> PERSIST_RO (never changes; persist directly)
+ * Pure; no side effects. */
+checkpoint_page_action_t checkpoint_page_action(bool region_writable, pte_t pte);
 /* Sentinel virt_addr stamped on context records (records are distinguished by
  * the flag above; this is for debuggability). */
 #define CHECKPOINT_CONTEXT_VADDR 0xFFFFFFFFFFFFF000ULL

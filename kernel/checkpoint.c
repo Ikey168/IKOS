@@ -68,6 +68,21 @@ bool checkpoint_mark_pte(pte_t* pte) {
     return true;
 }
 
+checkpoint_page_action_t checkpoint_page_action(bool region_writable, pte_t pte) {
+    if (!(pte & PAGE_PRESENT)) {
+        return CHECKPOINT_PAGE_SKIP;
+    }
+    if (region_writable) {
+        /* A clean (unmodified) writable page is still tagged snapshot-COW; a
+         * modified one had its tag cleared and is streamed via its capture. */
+        return (pte & PAGE_SNAPSHOT_COW) ? CHECKPOINT_PAGE_PERSIST_RW
+                                         : CHECKPOINT_PAGE_SKIP;
+    }
+    /* Read-only page (e.g. code): never changes, was never marked; persist it
+     * directly so the restored process has its text. */
+    return CHECKPOINT_PAGE_PERSIST_RO;
+}
+
 bool checkpoint_resolve_pte(pte_t* pte) {
     if (!pte) {
         return false;
@@ -236,10 +251,11 @@ bool checkpoint_handle_write_fault(vm_space_t* space, uint64_t fault_addr) {
 
 /* ----- Writeback ----- */
 
-/* Persist still-clean snapshot-COW pages from every live user space. Such a
- * page was marked at checkpoint_take() and never written since (otherwise the
- * fault hook would have cleared its tag and captured it), so its frame still
- * holds the checkpoint-time content and can be read live now. */
+/* Persist the pages of every live user space that are not already streamed via
+ * a capture: clean (unmodified) writable pages, whose frames still hold the
+ * checkpoint-time content, and read-only pages (e.g. code), which never change.
+ * Read-only pages are tagged CHECKPOINT_REC_READONLY so restore re-maps them
+ * without write permission. */
 static int writeback_clean_pages(snapshot_writer_t* writer) {
     uint32_t pids[PM_MAX_PROCESSES];
     uint32_t count = 0;
@@ -260,14 +276,16 @@ static int writeback_clean_pages(snapshot_writer_t* writer) {
         vm_space_t* space = proc->address_space;
 
         for (vm_region_t* region = space->regions; region; region = region->next) {
-            if (!(region->flags & VMM_FLAG_WRITE)) {
-                continue;
-            }
+            bool writable = (region->flags & VMM_FLAG_WRITE) != 0;
             for (uint64_t addr = region->start_addr; addr < region->end_addr;
                  addr += PAGE_SIZE) {
                 pte_t* pte = vmm_get_page_table(space, addr, PT_LEVEL, false);
-                if (!pte || !(*pte & PAGE_PRESENT) || !(*pte & PAGE_SNAPSHOT_COW)) {
-                    continue; /* unmapped, or already captured (tag cleared) */
+                if (!pte) {
+                    continue; /* unmapped */
+                }
+                checkpoint_page_action_t action = checkpoint_page_action(writable, *pte);
+                if (action == CHECKPOINT_PAGE_SKIP) {
+                    continue;
                 }
                 uint64_t phys = vmm_get_physical_addr(space, addr);
                 if (!phys) {
@@ -276,7 +294,9 @@ static int writeback_clean_pages(snapshot_writer_t* writer) {
                 /* Physical frames are directly addressable in the kernel, the
                  * same convention vmm.c uses to walk page tables. */
                 memcpy(buf, (const void*)phys, PAGE_SIZE);
-                if (snapshot_writer_add_page(writer, space->owner_pid, addr, 0,
+                uint32_t flags = (action == CHECKPOINT_PAGE_PERSIST_RO)
+                                     ? CHECKPOINT_REC_READONLY : 0;
+                if (snapshot_writer_add_page(writer, space->owner_pid, addr, flags,
                                              buf) != SNAPSHOT_OK) {
                     kfree(buf);
                     return CHECKPOINT_ERR_IO;
@@ -441,8 +461,13 @@ static int checkpoint_restore_apply_kernel(void* ctx, const snapshot_page_record
      * vmm.c uses); load the checkpointed page contents into the new frame. */
     memcpy((void*)phys, rec->page_data, PAGE_SIZE);
 
-    if (vmm_map_page(e->space, rec->virt_addr, phys,
-                     PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER) != 0) {
+    /* Read-only pages (code) are re-mapped without write permission so they keep
+     * their original protection; writable pages get PAGE_WRITABLE. */
+    uint32_t page_flags = PAGE_PRESENT | PAGE_USER;
+    if (!(rec->flags & CHECKPOINT_REC_READONLY)) {
+        page_flags |= PAGE_WRITABLE;
+    }
+    if (vmm_map_page(e->space, rec->virt_addr, phys, page_flags) != 0) {
         return CHECKPOINT_ERR_PARAM;
     }
     return CHECKPOINT_OK;
