@@ -86,6 +86,21 @@ typedef struct checkpoint_capture {
 int checkpoint_capture_page(uint32_t pid, uint64_t virt_addr,
                             const void* page_contents, pte_t* pte);
 
+/* Capture-record flag (carried in snapshot_page_record_t.flags) marking a
+ * record as a process CPU context blob rather than an address-space page. */
+#define CHECKPOINT_REC_CONTEXT  0x1
+/* Sentinel virt_addr stamped on context records (records are distinguished by
+ * the flag above; this is for debuggability). */
+#define CHECKPOINT_CONTEXT_VADDR 0xFFFFFFFFFFFFF000ULL
+
+/* Persist a process's CPU context (process_context_t) as a checkpoint record:
+ * copy ctx_size bytes (<= PAGE_SIZE) into a new, context-flagged capture record
+ * tagged with the current epoch. The writeback pass streams it like any other
+ * record; restore recognizes it by CHECKPOINT_REC_CONTEXT and reloads it into
+ * the reconstructed process (the latter in #127). Returns CHECKPOINT_OK or a
+ * negative code. */
+int checkpoint_capture_context(uint32_t pid, const void* ctx, uint32_t ctx_size);
+
 /* Page-fault hook entry point. If fault_addr in `space` is a present,
  * snapshot-COW page, capture its current contents, restore writability, flush
  * the TLB, and return true (the faulting write may now proceed). Returns false

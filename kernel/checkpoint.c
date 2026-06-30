@@ -12,6 +12,7 @@
 extern void* kmalloc(size_t size);
 extern void  kfree(void* ptr);
 extern void* memcpy(void* dest, const void* src, size_t size);
+extern void* memset(void* dest, int value, size_t size);
 
 /* Engine state. */
 static checkpoint_state_t g_checkpoint = {0};
@@ -176,6 +177,36 @@ int checkpoint_capture_page(uint32_t pid, uint64_t virt_addr,
     g_capture_count++;
 
     checkpoint_resolve_pte(pte);
+    return CHECKPOINT_OK;
+}
+
+int checkpoint_capture_context(uint32_t pid, const void* ctx, uint32_t ctx_size) {
+    if (!ctx || ctx_size == 0 || ctx_size > PAGE_SIZE) {
+        return CHECKPOINT_ERR_PARAM;
+    }
+
+    checkpoint_capture_t* rec =
+        (checkpoint_capture_t*)kmalloc(sizeof(checkpoint_capture_t));
+    if (!rec) {
+        return CHECKPOINT_ERR_PARAM;
+    }
+    rec->data = kmalloc(PAGE_SIZE);
+    if (!rec->data) {
+        kfree(rec);
+        return CHECKPOINT_ERR_PARAM;
+    }
+
+    /* Store the context zero-padded into a page-sized record so it rides the
+     * existing page-record path; the flag marks it as a context, not memory. */
+    memset(rec->data, 0, PAGE_SIZE);
+    memcpy(rec->data, ctx, ctx_size);
+    rec->epoch = g_checkpoint.current_epoch;
+    rec->pid = pid;
+    rec->flags = CHECKPOINT_REC_CONTEXT;
+    rec->virt_addr = CHECKPOINT_CONTEXT_VADDR;
+    rec->next = g_captures;
+    g_captures = rec;
+    g_capture_count++;
     return CHECKPOINT_OK;
 }
 
@@ -362,6 +393,12 @@ static vm_space_t* restore_space_for(checkpoint_restore_ctx_t* c, uint32_t pid) 
 static int checkpoint_restore_apply_kernel(void* ctx, const snapshot_page_record_t* rec) {
     checkpoint_restore_ctx_t* c = (checkpoint_restore_ctx_t*)ctx;
 
+    /* Context records are process CPU state, not memory: applying them to the
+     * reconstructed process_t happens in #127. Skip mapping them as pages. */
+    if (rec->flags & CHECKPOINT_REC_CONTEXT) {
+        return CHECKPOINT_OK;
+    }
+
     vm_space_t* space = restore_space_for(c, rec->pid);
     if (!space) {
         return CHECKPOINT_ERR_PARAM;
@@ -460,6 +497,11 @@ uint64_t checkpoint_take(void) {
         }
         spaces++;
         pages += (uint64_t)marked;
+
+        /* Snapshot the process's CPU context now, at the consistent checkpoint
+         * point. Unlike pages it is not copy-on-write, so it is captured eagerly
+         * (it is tiny); the writeback pass streams it to disk with the pages. */
+        checkpoint_capture_context(proc->pid, &proc->context, sizeof(proc->context));
     }
 
     g_checkpoint.current_epoch = epoch;
