@@ -196,6 +196,96 @@ bool checkpoint_handle_write_fault(vm_space_t* space, uint64_t fault_addr) {
     return true;
 }
 
+/* ----- Writeback ----- */
+
+/* Persist still-clean snapshot-COW pages from every live user space. Such a
+ * page was marked at checkpoint_take() and never written since (otherwise the
+ * fault hook would have cleared its tag and captured it), so its frame still
+ * holds the checkpoint-time content and can be read live now. */
+static int writeback_clean_pages(snapshot_writer_t* writer) {
+    uint32_t pids[PM_MAX_PROCESSES];
+    uint32_t count = 0;
+    if (pm_get_process_list(pids, PM_MAX_PROCESSES, &count) != 0) {
+        return CHECKPOINT_OK; /* nothing to walk */
+    }
+
+    uint8_t* buf = (uint8_t*)kmalloc(PAGE_SIZE);
+    if (!buf) {
+        return CHECKPOINT_ERR_PARAM;
+    }
+
+    for (uint32_t i = 0; i < count; i++) {
+        process_t* proc = pm_get_process(pids[i]);
+        if (!proc || !proc->address_space) {
+            continue;
+        }
+        vm_space_t* space = proc->address_space;
+
+        for (vm_region_t* region = space->regions; region; region = region->next) {
+            if (!(region->flags & VMM_FLAG_WRITE)) {
+                continue;
+            }
+            for (uint64_t addr = region->start_addr; addr < region->end_addr;
+                 addr += PAGE_SIZE) {
+                pte_t* pte = vmm_get_page_table(space, addr, PT_LEVEL, false);
+                if (!pte || !(*pte & PAGE_PRESENT) || !(*pte & PAGE_SNAPSHOT_COW)) {
+                    continue; /* unmapped, or already captured (tag cleared) */
+                }
+                uint64_t phys = vmm_get_physical_addr(space, addr);
+                if (!phys) {
+                    continue;
+                }
+                /* Physical frames are directly addressable in the kernel, the
+                 * same convention vmm.c uses to walk page tables. */
+                memcpy(buf, (const void*)phys, PAGE_SIZE);
+                if (snapshot_writer_add_page(writer, space->owner_pid, addr, 0,
+                                             buf) != SNAPSHOT_OK) {
+                    kfree(buf);
+                    return CHECKPOINT_ERR_IO;
+                }
+            }
+        }
+    }
+
+    kfree(buf);
+    return CHECKPOINT_OK;
+}
+
+int checkpoint_writeback(snapshot_store_t* store) {
+    if (!store) {
+        return CHECKPOINT_ERR_PARAM;
+    }
+
+    snapshot_writer_t writer;
+    if (snapshot_store_begin(store, g_checkpoint.current_epoch, &writer) != SNAPSHOT_OK) {
+        return CHECKPOINT_ERR_IO;
+    }
+
+    /* 1. Modified pages: the captured pre-checkpoint images. */
+    for (checkpoint_capture_t* c = g_captures; c; c = c->next) {
+        if (snapshot_writer_add_page(&writer, c->pid, c->virt_addr, c->flags,
+                                     c->data) != SNAPSHOT_OK) {
+            return CHECKPOINT_ERR_IO;
+        }
+    }
+
+    /* 2. Still-clean pages: live content (== checkpoint-time content). */
+    int rc = writeback_clean_pages(&writer);
+    if (rc != CHECKPOINT_OK) {
+        return rc;
+    }
+
+    /* 3. Finalize: slot CRC + the superblock flip (the single commit point). */
+    if (snapshot_store_commit(&writer) != SNAPSHOT_OK) {
+        return CHECKPOINT_ERR_IO;
+    }
+
+    /* 4. Drop the in-memory snapshot log and close the epoch. */
+    checkpoint_clear_captures();
+    g_checkpoint.epoch_open = false;
+    return CHECKPOINT_OK;
+}
+
 /* ----- Take ----- */
 
 uint64_t checkpoint_take(void) {

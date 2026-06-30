@@ -15,8 +15,9 @@
  *      and ignores ordinary write faults.
  *
  * Build: gcc -I../include -o test_checkpoint test_checkpoint.c \
- *            ../kernel/checkpoint.c
- * (checkpoint.c is linked; this file mocks the VMM/PM symbols it calls.)
+ *            ../kernel/checkpoint.c ../kernel/snapshot_store.c
+ * (checkpoint.c + snapshot_store.c are linked; this file mocks the VMM/PM
+ * symbols they call.)
  */
 
 #include <stdint.h>
@@ -65,6 +66,9 @@ pte_t* vmm_get_page_table(vm_space_t* space, uint64_t virt_addr, int level, bool
 }
 vm_space_t* vmm_get_current_space(void) { return 0; }
 void vmm_flush_tlb_page(uint64_t virt_addr) { (void)virt_addr; g_flushes++; }
+uint64_t vmm_get_physical_addr(vm_space_t* space, uint64_t virt_addr) {
+    (void)space; (void)virt_addr; return 0; /* clean-page walk unused here */
+}
 
 /* ----- Stubs so checkpoint.c links (checkpoint_take path, unused here) ----- */
 struct process;

@@ -17,12 +17,14 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "vmm.h"   /* vm_space_t, pte_t, PAGE_* flags */
+#include "vmm.h"            /* vm_space_t, pte_t, PAGE_* flags */
+#include "snapshot_store.h" /* snapshot_store_t (writeback target) */
 
 /* Error codes (negative); non-negative returns are counts/epochs. */
 #define CHECKPOINT_OK         0
 #define CHECKPOINT_ERR_PARAM -1
 #define CHECKPOINT_ERR_STATE -2
+#define CHECKPOINT_ERR_IO    -3
 
 /* Engine state, observable for tests, stats, and the writeback pass. */
 typedef struct {
@@ -94,6 +96,19 @@ bool checkpoint_handle_write_fault(vm_space_t* space, uint64_t fault_addr);
 checkpoint_capture_t* checkpoint_captures(void);
 uint64_t checkpoint_capture_count(void);
 void checkpoint_clear_captures(void);
+
+/* ----- Writeback (#115) -----
+ *
+ * Stream the current (open) checkpoint to the on-disk store, off the
+ * stop-the-world path. Persists, into the store's inactive slot:
+ *   - every captured page (the pre-checkpoint image preserved by the hook), and
+ *   - every still-clean snapshot-COW page in live user spaces (its frame still
+ *     holds the checkpoint-time content), read live at writeback time.
+ * Modified pages are not double-written: the hook cleared their PAGE_SNAPSHOT_COW
+ * tag, so the clean-page walk skips them. snapshot_store_commit() flips the
+ * superblock (the single commit point). On success the capture list is freed
+ * and the epoch is closed. Returns CHECKPOINT_OK or a negative code. */
+int checkpoint_writeback(snapshot_store_t* store);
 
 /* Take a checkpoint: bump the epoch, mark every live user address space, and
  * return the new epoch. Returns 0 on failure. Does no disk I/O and copies no
