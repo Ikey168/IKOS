@@ -409,6 +409,31 @@ int checkpoint_boot(void) {
     return checkpoint_restore_boot(g_boot_store);
 }
 
+int checkpoint_persistence_init(snapshot_store_t* store, fat_block_device_t* dev,
+                                uint32_t base_sector, uint32_t slot_sectors,
+                                uint64_t interval_ticks) {
+    if (!store || !dev) {
+        return CHECKPOINT_ERR_PARAM; /* no device: persistence stays disabled */
+    }
+
+    if (snapshot_store_init(store, dev, base_sector, slot_sectors) != SNAPSHOT_OK) {
+        return CHECKPOINT_ERR_IO;
+    }
+
+    /* Format only if the store holds no valid checkpoint, so an existing
+     * checkpoint survives a reboot and gets restored. */
+    snapshot_reader_t probe;
+    if (snapshot_store_load(store, &probe) != SNAPSHOT_OK) {
+        if (snapshot_store_format(store) != SNAPSHOT_OK) {
+            return CHECKPOINT_ERR_IO;
+        }
+    }
+
+    checkpoint_set_boot_store(store);
+    checkpoint_timer_configure(true, interval_ticks);
+    return CHECKPOINT_OK;
+}
+
 /* ----- Take ----- */
 
 uint64_t checkpoint_take(void) {

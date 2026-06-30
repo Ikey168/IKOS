@@ -156,6 +156,22 @@ void checkpoint_timer_configure(bool enabled, uint64_t interval_ticks);
  * in flight. Returns true if a checkpoint was taken on this tick. */
 bool checkpoint_tick(void);
 
+/* ----- Boot wiring (#119) ----- */
+
+/* Default checkpoint-store geometry on the backing device. */
+#define CHECKPOINT_STORE_BASE_SECTOR   0
+#define CHECKPOINT_STORE_SLOT_SECTORS  256
+
+/* Wire orthogonal persistence to a block device at boot: bind a snapshot store
+ * to `dev`, format it if it holds no valid checkpoint yet, register it as the
+ * boot store (so checkpoint_boot() restores from it), and enable the periodic
+ * trigger at the given cadence. Passing dev == NULL leaves persistence disabled
+ * (the kernel cold-boots), so callers can wire this unconditionally. Returns
+ * CHECKPOINT_OK when persistence is armed, or a negative code. */
+int checkpoint_persistence_init(snapshot_store_t* store, fat_block_device_t* dev,
+                                uint32_t base_sector, uint32_t slot_sectors,
+                                uint64_t interval_ticks);
+
 /* Take a checkpoint: bump the epoch, mark every live user address space, and
  * return the new epoch. Returns 0 on failure. Does no disk I/O and copies no
  * page — the bounded pause is O(mapped pages walked), not O(RAM touched). */
