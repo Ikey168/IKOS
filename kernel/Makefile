@@ -46,7 +46,8 @@ C_SOURCES = scheduler.c interrupts.c scheduler_test.c kalloc.c kalloc_test.c use
             ext2.c ext2_syscalls.c \
             usb.c usb_hid.c usb_uhci.c usb_control.c usb_syscalls.c usb_test.c usb_integration.c \
             audio.c audio_ac97.c audio_syscalls.c audio_user.c \
-            ramdisk.c snapshot_store.c checkpoint.c checkpoint_extstate.c checkpoint_ide.c checkpoint_barrier.c
+            ramdisk.c snapshot_store.c checkpoint.c checkpoint_extstate.c checkpoint_ide.c checkpoint_barrier.c \
+            checkpoint_proctable.c checkpoint_proctable_sync.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 
