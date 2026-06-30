@@ -381,8 +381,10 @@ static int checkpoint_restore_apply_kernel(void* ctx, const snapshot_page_record
         return CHECKPOINT_ERR_PARAM;
     }
 
-    /* External / non-persistable state (sockets, DMA, devices) is re-attached
-     * as severed here; the policy lands in #118. */
+    /* Page reconstruction only. External / non-persistable handles (sockets,
+     * DMA, devices) are severed per restored process via extstate_sever_all()
+     * (checkpoint_extstate.h, #118); that runs when #119 reconstructs the
+     * process table, since fds live on the process, not on a page. */
     return CHECKPOINT_OK;
 }
 
