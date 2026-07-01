@@ -42,6 +42,7 @@ ships each piece:
 | GDB bridge | Maps gdb `reverse-stepi` / `reverse-continue` (RSP bs/bc) onto the reverse engine | `kernel/gdbstub.c`, `kernel/gdbstub_sync.c` |
 | GDB serial transport | Serves RSP packets over the serial port: reads a framed request past stray acks, acks it, calls gdbstub_serve, and writes the framed reply with retransmit-on-NAK | `kernel/gdb_serial.c`, `kernel/gdb_serial_sync.c` |
 | MCP interface | Exposes record / rewind / reverse execution as JSON-RPC tools an AI agent can call | `kernel/mcp.c`, `kernel/mcp_sync.c` |
+| MCP server transport | Serves the MCP tools over a newline-delimited JSON-RPC loop: reads a request line, calls mcp_handle over the bound kernel ops, writes the response line; registers the keyframe ring and watch probe | `kernel/mcp_server.c`, `kernel/mcp_server_sync.c` |
 
 Each stage has a host-side unit test under `tests/` and a freestanding compile check in CI.
 Two end-to-end demos tie them together, both headless: `scripts/test/timetravel_demo.sh`
