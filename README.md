@@ -354,9 +354,9 @@ Status:
 - Time-travel UX (keyframe retention, rewind-to, reverse execution, reverse
   breakpoints/watchpoints): implemented, unit-tested, with a headless scrub-backwards demo
 - Tooling: a GDB reverse-execution bridge (implemented, unit-tested)
-- MCP interface (planned): expose record, rewind, and reverse execution as tools an AI
-  agent can call, with a demo where an agent debugs a planted heisenbug by rewinding the
-  machine
+- MCP interface: expose record, rewind, and reverse execution as JSON-RPC tools an AI
+  agent can call (implemented, unit-tested), with a headless demo where an agent debugs a
+  planted heisenbug by rewinding the machine
 
 ### Systems Roadmap
 
