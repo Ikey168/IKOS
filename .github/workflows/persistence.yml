@@ -32,7 +32,7 @@ jobs:
       - name: Freestanding compile check (kernel modules)
         run: |
           set -e
-          for f in kernel/checkpoint.c kernel/snapshot_store.c kernel/checkpoint_extstate.c kernel/checkpoint_ide.c kernel/checkpoint_barrier.c kernel/checkpoint_proctable.c kernel/checkpoint_proctable_sync.c kernel/checkpoint_filetable.c kernel/checkpoint_filetable_sync.c kernel/checkpoint_ipc.c kernel/checkpoint_ipc_sync.c kernel/checkpoint_driver.c kernel/checkpoint_disk.c kernel/checkpoint_disk_sync.c kernel/checkpoint_fb.c kernel/checkpoint_fb_sync.c kernel/checkpoint_restore_seq.c kernel/checkpoint_boot_v2.c kernel/ramdisk.c; do
+          for f in kernel/checkpoint.c kernel/snapshot_store.c kernel/checkpoint_extstate.c kernel/checkpoint_ide.c kernel/checkpoint_barrier.c kernel/checkpoint_proctable.c kernel/checkpoint_proctable_sync.c kernel/checkpoint_filetable.c kernel/checkpoint_filetable_sync.c kernel/checkpoint_ipc.c kernel/checkpoint_ipc_sync.c kernel/checkpoint_driver.c kernel/checkpoint_disk.c kernel/checkpoint_disk_sync.c kernel/checkpoint_fb.c kernel/checkpoint_fb_sync.c kernel/checkpoint_restore_seq.c kernel/checkpoint_boot_v2.c kernel/checkpoint_journal.c kernel/ramdisk.c; do
             echo "freestanding: $f"
             gcc -ffreestanding -fno-stack-protector -m64 -Iinclude -Wall -Wextra -fsyntax-only "$f"
           done
@@ -63,6 +63,7 @@ jobs:
           gcc -I../include -Wall -o /tmp/t_ext    test_checkpoint_extstate.c   ../kernel/checkpoint_extstate.c && /tmp/t_ext
           gcc -I../include -Wall -o /tmp/t_init   test_persistence_init.c     $KR && /tmp/t_init
           gcc -I../include -Wall -o /tmp/t_ide    test_checkpoint_ide.c       ../kernel/checkpoint_ide.c ../kernel/snapshot_store.c && /tmp/t_ide
+          gcc -I../include -Wall -o /tmp/t_jrnl   test_checkpoint_journal.c   ../kernel/checkpoint_journal.c && /tmp/t_jrnl
 
   e2e-demo:
     runs-on: ubuntu-latest
