@@ -9,10 +9,11 @@
  */
 
 #include "journal_capture.h"
-#include "scheduler.h"       /* scheduler_preempt_points */
-#include "time_record.h"     /* ktime_values */
-#include "entropy_record.h"  /* kentropy_bytes */
-#include "checkpoint.h"      /* checkpoint_set_journal_hook */
+#include "scheduler.h"        /* scheduler_preempt_points */
+#include "time_record.h"      /* ktime_values */
+#include "entropy_record.h"   /* kentropy_bytes */
+#include "divergence_scan.h"  /* kdiverge_record_epoch, kdiverge_journal_sums */
+#include "checkpoint.h"       /* checkpoint_set_journal_hook */
 #include <stddef.h>
 
 /* The journal store bound to the persistence device (caller-allocated storage
@@ -23,9 +24,10 @@ static bool            g_journal_ready = false;
 /* Live delta sources: the record-subsystem accessors, each returning the
  * current epoch's captured buffer. */
 static const journal_capture_sources_t g_live_sources = {
-    .preempt_points = scheduler_preempt_points,
-    .time_values    = ktime_values,
-    .entropy_bytes  = kentropy_bytes,
+    .preempt_points  = scheduler_preempt_points,
+    .time_values     = ktime_values,
+    .entropy_bytes   = kentropy_bytes,
+    .divergence_sums = kdiverge_journal_sums,
 };
 
 /* Checkpoint post-commit hook: journal the epoch that just committed. Runs
@@ -35,6 +37,9 @@ static int journal_capture_hook(uint64_t epoch) {
     if (!g_journal_ready) {
         return JOURNAL_ERR_STATE;
     }
+    /* Checksum the restored components at this epoch boundary in RECORD mode
+     * (#197) so their sums ride in the journal alongside the input deltas. */
+    kdiverge_record_epoch(epoch);
     return journal_capture_epoch(&g_journal_store, epoch, 0, &g_live_sources);
 }
 
