@@ -34,6 +34,7 @@
 #include "../include/divergence.h"
 #include "../include/divergence_scan.h"
 #include "../include/gdb_serial.h"
+#include "../include/mcp_server.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -306,6 +307,13 @@ void kernel_init(void) {
          * serial serve loop (gdbstub_serial_run) is entered on demand from the
          * debug path, not during boot. */
         gdbstub_serial_init(0 /* COM1 */);
+
+        /* Bind the MCP time-travel tools and configure their serial line (#199)
+         * on COM2, and register the keyframe ring + watch probe, so an MCP
+         * client (an AI agent) can list checkpoints and drive rewind / reverse
+         * execution. The blocking JSON-RPC serve loop (mcp_server_run) is
+         * entered on demand, not during boot. */
+        mcp_server_init(0 /* COM2 */);
     } else {
         kernel_print("Orthogonal persistence disabled (no checkpoint store)\n");
     }
