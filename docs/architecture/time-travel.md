@@ -36,6 +36,7 @@ ships each piece:
 | Reverse execution | reverse-step / reverse-continue as restore-prior-keyframe-and-replay | `kernel/reverse.c`, `kernel/reverse_sync.c` |
 | Reverse breakpoints/watchpoints | Scan backward to the last hit or the last write to a value, bounded by the ring | `kernel/revbreak.c`, `kernel/revbreak_sync.c` |
 | GDB bridge | Maps gdb `reverse-stepi` / `reverse-continue` (RSP bs/bc) onto the reverse engine | `kernel/gdbstub.c`, `kernel/gdbstub_sync.c` |
+| MCP interface | Exposes record / rewind / reverse execution as JSON-RPC tools an AI agent can call | `kernel/mcp.c`, `kernel/mcp_sync.c` |
 
 Each stage has a host-side unit test under `tests/` and a freestanding compile check in CI.
 Two end-to-end demos tie them together, both headless: `scripts/test/timetravel_demo.sh`
@@ -167,6 +168,13 @@ final state is byte-identical. This gates the milestone and guards against regre
 
 Goal: expose record, rewind, and reverse execution as Model Context Protocol tools so an
 AI agent can drive a time-traveling debugger over a well-defined interface.
+
+This is implemented: `kernel/mcp.c` is a pure JSON-RPC dispatch core that handles
+`tools/list` and `tools/call`, mapping the tool names below onto the rewind (#169), reverse
+(#170), and reverse-watchpoint (#171) engines; `kernel/mcp_sync.c` wires the operations to
+the kernel entry points. `scripts/test/mcp_heisenbug_demo.sh` runs the agent flow below
+headlessly: an agent debugs a planted heisenbug by calling `watch_last_write` and
+`rewind_to`, with the stdio JSON-RPC server loop the only remaining transport wiring.
 
 The interface changes who the customer is. Instead of a human who must adopt a new OS, the
 consumer is an agent that calls tools. Agents are poor at exactly what this engine is good
