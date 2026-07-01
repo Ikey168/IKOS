@@ -26,6 +26,7 @@ ships each piece:
 | Stage | What it does | Modules |
 |-------|--------------|---------|
 | Input journal | Records the nondeterministic inputs between two keyframes (keystrokes, disk completions, timer/cycle reads, entropy), each tagged with epoch and a logical clock, in a CRC-protected double-buffered store | `kernel/checkpoint_journal.c` |
+| Live journal capture | On every checkpoint commit, gathers the closing epoch's recorded deltas (preemption points, time reads, entropy bytes) and writes them to the input journal alongside the checkpoint, via a checkpoint post-commit hook | `kernel/journal_capture.c`, `kernel/journal_capture_sync.c` |
 | Deterministic preemption | Records the logical point of every context switch on a live run and forces switches at the same points on replay | `kernel/sched_record.c` + the `scheduler_tick` seam |
 | Virtualized time | Records RDTSC/timer reads and returns the recorded values on replay | `kernel/time_record.c`, `kernel/time_record_sync.c` |
 | Deterministic entropy | Records entropy draws and returns the recorded bytes on replay | `kernel/entropy_record.c`, `kernel/entropy_record_sync.c` |

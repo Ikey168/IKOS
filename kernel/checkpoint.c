@@ -32,6 +32,14 @@ static uint64_t g_timer_ticks = 0;
  * when every CPU has parked. Single CPU until SMP lands. */
 static checkpoint_barrier_t g_barrier;
 
+/* Post-commit journal hook (#194). Injected by the journal-capture adapter so
+ * the checkpoint core stays free of the journal/record dependencies. */
+static checkpoint_journal_hook_fn g_journal_hook = 0;
+
+void checkpoint_set_journal_hook(checkpoint_journal_hook_fn hook) {
+    g_journal_hook = hook;
+}
+
 void checkpoint_init(void) {
     g_checkpoint.current_epoch = 0;
     g_checkpoint.spaces_marked = 0;
@@ -378,6 +386,14 @@ int checkpoint_writeback(snapshot_store_t* store) {
     /* 3. Finalize: slot CRC + the superblock flip (the single commit point). */
     if (snapshot_store_commit(&writer) != SNAPSHOT_OK) {
         return CHECKPOINT_ERR_IO;
+    }
+
+    /* 3b. Persist this epoch's input journal alongside the just-committed
+     * checkpoint (#194). Advisory: the checkpoint is already durable, so a
+     * journal failure does not fail the checkpoint (replay simply cannot
+     * re-drive past this keyframe until a later epoch journals cleanly). */
+    if (g_journal_hook) {
+        g_journal_hook(g_checkpoint.current_epoch);
     }
 
     /* 4. Drop the in-memory snapshot log and close the epoch. */

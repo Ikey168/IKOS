@@ -154,6 +154,11 @@ static int flush_sector(journal_writer_t* w) {
 
 int journal_writer_append(journal_writer_t* writer, uint32_t type,
                           uint64_t lclock, uint64_t value) {
+    return journal_writer_append_len(writer, type, lclock, value, 0);
+}
+
+int journal_writer_append_len(journal_writer_t* writer, uint32_t type,
+                              uint64_t lclock, uint64_t value, uint32_t len) {
     if (!writer || !writer->active) return JOURNAL_ERR_STATE;
     if (writer->event_count >= writer->store->max_events) return JOURNAL_ERR_FULL;
 
@@ -162,7 +167,7 @@ int journal_writer_append(journal_writer_t* writer, uint32_t type,
     ev.epoch = writer->epoch;
     ev.lclock = lclock;
     ev.type = type;
-    ev.len = 0;
+    ev.len = len;
     ev.value = value;
 
     uint32_t off = writer->buf_events * JOURNAL_EVENT_SIZE;

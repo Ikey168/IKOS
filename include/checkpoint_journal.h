@@ -146,6 +146,12 @@ int journal_store_begin(journal_store_t* store, uint64_t epoch,
 int journal_writer_append(journal_writer_t* writer, uint32_t type,
                           uint64_t lclock, uint64_t value);
 
+/* Like journal_writer_append but records `len` in the event's len field, for
+ * variable-length payloads packed into value (for example an entropy run of
+ * 1..8 bytes). journal_writer_append is this with len == 0. */
+int journal_writer_append_len(journal_writer_t* writer, uint32_t type,
+                              uint64_t lclock, uint64_t value, uint32_t len);
+
 /* Finalize: flush the last partial sector, write the slot header + CRC, then
  * flip the superblock. The superblock write is the atomic commit point. */
 int journal_store_commit(journal_writer_t* writer);

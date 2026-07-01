@@ -157,6 +157,16 @@ void checkpoint_clear_captures(void);
  * and the epoch is closed. Returns CHECKPOINT_OK or a negative code. */
 int checkpoint_writeback(snapshot_store_t* store);
 
+/* Post-commit journal hook (#194). After a checkpoint's writeback has durably
+ * committed, the engine calls this hook (when set) with the committed epoch, so
+ * the deterministic-replay journal for that epoch can be persisted alongside
+ * the checkpoint. Injected as a function pointer to keep the checkpoint core
+ * free of the journal / record-subsystem dependencies. NULL by default (no
+ * journaling). The return value is advisory: the checkpoint is already
+ * committed, so a hook failure does not undo or fail the checkpoint. */
+typedef int (*checkpoint_journal_hook_fn)(uint64_t epoch);
+void checkpoint_set_journal_hook(checkpoint_journal_hook_fn hook);
+
 /* ----- Restore (#116) -----
  *
  * Called once for each page of the loaded checkpoint, in slot order. The
