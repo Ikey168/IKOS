@@ -30,8 +30,9 @@ typedef enum {
 } extstate_kind_t;
 
 /* Handle state flags. */
-#define EXTSTATE_FLAG_OPEN     0x1   /* the handle is currently open/in use */
-#define EXTSTATE_FLAG_SEVERED  0x2   /* severed across a checkpoint restore */
+#define EXTSTATE_FLAG_OPEN        0x1   /* the handle is currently open/in use */
+#define EXTSTATE_FLAG_SEVERED     0x2   /* severed across a checkpoint restore */
+#define EXTSTATE_FLAG_RECONNECTED 0x4   /* owner re-established it after a sever */
 
 /* Status codes an app/syscall observes when touching a handle. */
 #define EXTSTATE_OK        0
@@ -84,5 +85,54 @@ bool extstate_sever_fd(uint32_t* flags);
 /* Has this descriptor been severed across a restore? Syscalls consult this to
  * return a clean error so the app re-establishes the resource. */
 bool extstate_fd_is_severed(uint32_t flags);
+
+/* ----- DMA / IPC endpoints and the reconnection contract (v2, #146) -----
+ *
+ * Not every non-persistable resource is a file descriptor. An in-flight DMA
+ * mapping or a non-drainable IPC/network endpoint is its own kernel object, so
+ * v2 pushes the severing policy inward to those resources directly (v2 design
+ * section 6). The kernel tracks each such resource as an extstate_endpoint_t;
+ * at the checkpoint barrier the non-persistable ones are dropped from the
+ * persisted set, and on restore they are severed so their next use returns a
+ * defined error.
+ *
+ * Reconnection contract: an owner that observes EXTSTATE_SEVERED (via
+ * extstate_endpoint_status, mirroring the socket reconnect path of #128)
+ * re-establishes the resource out of band, then calls extstate_endpoint_reconnect
+ * to clear the severed state. The generation counter bumps on every reconnect so
+ * stale references held elsewhere can detect that the endpoint was rebuilt. */
+typedef struct {
+    extstate_kind_t kind;        /* DMA_BUFFER, DEVICE, SOCKET, PIPE, ... */
+    uint32_t        flags;       /* EXTSTATE_FLAG_OPEN / _SEVERED / _RECONNECTED */
+    uint32_t        owner;       /* owning pid (for the restore registrar) */
+    uint32_t        generation;  /* bumped each time the owner re-establishes it */
+} extstate_endpoint_t;
+
+/* Does this endpoint's connection ride through a checkpoint, or must it be
+ * severed? A thin wrapper over the kind classification (DMA/device/socket/pipe
+ * do not survive; a regular-file-backed mapping would). */
+bool extstate_endpoint_persistable(const extstate_endpoint_t* ep);
+
+/* Restore-time transition for one endpoint: if it is open, non-persistable, and
+ * not already severed, mark it severed and return true. Idempotent. */
+bool extstate_endpoint_sever(extstate_endpoint_t* ep);
+
+/* Sever every endpoint in an array; returns the number that transitioned. Use
+ * when reconstructing a process's DMA mappings / IPC endpoints on restore. */
+int  extstate_endpoint_sever_all(extstate_endpoint_t* eps, int count);
+
+/* Status the owner observes: EXTSTATE_SEVERED while the endpoint is severed and
+ * not yet reconnected, else EXTSTATE_OK. */
+int  extstate_endpoint_status(const extstate_endpoint_t* ep);
+
+/* Does this endpoint still need the owner to re-establish it? (Severed and not
+ * yet reconnected.) */
+bool extstate_endpoint_needs_reconnect(const extstate_endpoint_t* ep);
+
+/* The reconnection contract. Call after the owner has re-established the
+ * underlying resource: clears the severed state, marks it reconnected + open,
+ * bumps the generation, and returns true. Returns false (no-op) if the endpoint
+ * was not severed, so a double reconnect is safe. */
+bool extstate_endpoint_reconnect(extstate_endpoint_t* ep);
 
 #endif /* CHECKPOINT_EXTSTATE_H */

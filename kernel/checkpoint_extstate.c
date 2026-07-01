@@ -93,3 +93,67 @@ bool extstate_sever_fd(uint32_t* flags) {
 bool extstate_fd_is_severed(uint32_t flags) {
     return (flags & EXTSTATE_FD_SEVERED) != 0;
 }
+
+/* ----- DMA / IPC endpoints and the reconnection contract (v2, #146) ----- */
+
+bool extstate_endpoint_persistable(const extstate_endpoint_t* ep) {
+    if (!ep) {
+        return false; /* fail safe: nothing to vouch for */
+    }
+    return extstate_survives_checkpoint(ep->kind);
+}
+
+bool extstate_endpoint_sever(extstate_endpoint_t* ep) {
+    if (!ep) {
+        return false;
+    }
+    if (!(ep->flags & EXTSTATE_FLAG_OPEN)) {
+        return false; /* not in use */
+    }
+    if (ep->flags & EXTSTATE_FLAG_SEVERED) {
+        return false; /* already severed: idempotent */
+    }
+    if (extstate_survives_checkpoint(ep->kind)) {
+        return false; /* persistable: leave intact */
+    }
+    ep->flags |= EXTSTATE_FLAG_SEVERED;
+    ep->flags &= ~EXTSTATE_FLAG_RECONNECTED; /* a fresh sever supersedes any prior reconnect */
+    return true;
+}
+
+int extstate_endpoint_sever_all(extstate_endpoint_t* eps, int count) {
+    if (!eps || count <= 0) {
+        return 0;
+    }
+    int severed = 0;
+    for (int i = 0; i < count; i++) {
+        if (extstate_endpoint_sever(&eps[i])) {
+            severed++;
+        }
+    }
+    return severed;
+}
+
+int extstate_endpoint_status(const extstate_endpoint_t* ep) {
+    if (ep && (ep->flags & EXTSTATE_FLAG_SEVERED)) {
+        return EXTSTATE_SEVERED;
+    }
+    return EXTSTATE_OK;
+}
+
+bool extstate_endpoint_needs_reconnect(const extstate_endpoint_t* ep) {
+    return ep && (ep->flags & EXTSTATE_FLAG_SEVERED) != 0;
+}
+
+bool extstate_endpoint_reconnect(extstate_endpoint_t* ep) {
+    if (!ep) {
+        return false;
+    }
+    if (!(ep->flags & EXTSTATE_FLAG_SEVERED)) {
+        return false; /* nothing to re-establish: safe no-op */
+    }
+    ep->flags &= ~EXTSTATE_FLAG_SEVERED;
+    ep->flags |= EXTSTATE_FLAG_OPEN | EXTSTATE_FLAG_RECONNECTED;
+    ep->generation++;
+    return true;
+}
