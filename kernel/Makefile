@@ -51,7 +51,8 @@ C_SOURCES = scheduler.c interrupts.c scheduler_test.c kalloc.c kalloc_test.c use
             checkpoint_filetable.c checkpoint_filetable_sync.c \
             checkpoint_ipc.c checkpoint_ipc_sync.c checkpoint_driver.c \
             checkpoint_disk.c checkpoint_disk_sync.c \
-            checkpoint_fb.c checkpoint_fb_sync.c
+            checkpoint_fb.c checkpoint_fb_sync.c \
+            checkpoint_restore_seq.c checkpoint_boot_v2.c
 ASM_SOURCES = context_switch.asm
 BOOT_SOURCES = $(BOOTDIR)/boot_longmode.asm
 

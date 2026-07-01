@@ -232,12 +232,13 @@ void kernel_init(void) {
         kernel_print("Orthogonal persistence disabled (no checkpoint store)\n");
     }
 
-    /* If a valid checkpoint exists, resume the saved address spaces instead of
-     * cold-starting (#116). With no device wired above, checkpoint_boot()
-     * reports no checkpoint and we fall through to the normal cold boot. */
-    int restored = checkpoint_boot();
-    if (restored >= 0) {
-        kernel_print("Resumed %d page(s) from last checkpoint\n", restored);
+    /* If a valid checkpoint exists, bring the whole machine back in the defined
+     * v2 order (#147): restore kernel state, re-attach drivers, then restore
+     * user address spaces + processes on top, with a cold-boot fallback if a
+     * critical step fails. With no device wired above, or on any fallback,
+     * checkpoint_boot_v2() reports no resume and we cold-boot normally. */
+    if (checkpoint_boot_v2(&persistence_store) == CHECKPOINT_OK) {
+        kernel_print("Resumed the whole machine from the last checkpoint\n");
         return; /* restored system is live; no fresh init process */
     }
 

@@ -213,6 +213,13 @@ void checkpoint_set_boot_store(snapshot_store_t* store);
  * Returns pages restored (>= 0) or CHECKPOINT_ERR_NO_CHECKPOINT. */
 int checkpoint_boot(void);
 
+/* v2 whole-machine boot restore (#147): runs the ordered restore (kernel state,
+ * driver re-attach, user processes) with a cold-boot fallback via the pure
+ * sequencer in checkpoint_restore_seq.c. Returns CHECKPOINT_OK if the machine
+ * resumed, or CHECKPOINT_ERR_NO_CHECKPOINT to continue a cold boot. Defined in
+ * checkpoint_boot_v2.c. */
+int checkpoint_boot_v2(snapshot_store_t* store);
+
 /* ----- Periodic trigger (#117) ----- */
 
 /* Default checkpoint cadence, in timer ticks. The scheduler tick rate
