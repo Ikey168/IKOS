@@ -112,6 +112,15 @@ int keyframe_store_load_latest(keyframe_store_t* ks, snapshot_reader_t* reader,
 /* The in-memory ring index (retained epochs, horizon), for logging and tests. */
 const keyframe_ring_t* keyframe_store_ring(const keyframe_store_t* ks);
 
+/* Select the nearest retained keyframe at or before `target` and open its
+ * region store (re-pointing the store's internal scratch), returning that store
+ * so the caller can drive the checkpoint restore path (checkpoint_restore_boot)
+ * against it. Fills *epoch_out (may be NULL) with the epoch selected. Returns
+ * NULL if `target` predates the retained window. The returned pointer is owned
+ * by the keyframe store and is only valid until the next region operation. */
+snapshot_store_t* keyframe_store_region_for(keyframe_store_t* ks, uint64_t target,
+                                            uint64_t* epoch_out);
+
 /* ---- Kernel adapter (keyframe_store_sync.c) ----
  * Binds a process-wide keyframe store to a device region and reloads (or
  * formats) its retained window. Call once at boot with a non-overlapping

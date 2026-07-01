@@ -31,6 +31,7 @@ ships each piece:
 | Virtualized time | Records RDTSC/timer reads and returns the recorded values on replay | `kernel/time_record.c`, `kernel/time_record_sync.c` |
 | Deterministic entropy | Records entropy draws and returns the recorded bytes on replay | `kernel/entropy_record.c`, `kernel/entropy_record_sync.c` |
 | Replay engine | Restores the nearest keyframe and re-drives forward to a target epoch plus offset | `kernel/replay_engine.c`, `kernel/replay_engine_sync.c` |
+| Replay driver | Assembles the engine's load_epoch/run_epoch hooks: splits each epoch's journal events back into the three delta arrays, installs them in REPLAY mode, and re-drives the live scheduler, landing the booted system at an arbitrary (epoch, offset) | `kernel/replay_driver.c`, `kernel/replay_driver_sync.c` |
 | Divergence detector | Checksums system state per epoch on record and replay, flagging any nondeterminism leak with the epoch and component | `kernel/divergence.c`, `kernel/divergence_sync.c` |
 | Keyframe retention ring | Keeps the last N keyframes so rewind is not limited to the latest | `kernel/keyframe_ring.c` |
 | Keyframe retention store | Spreads checkpoints across N on-disk regions driven by the ring, persists the ring index (rebuilding it from region superblocks if torn), and restores an arbitrary retained keyframe by epoch | `kernel/keyframe_store.c`, `kernel/keyframe_store_sync.c` |
