@@ -322,15 +322,17 @@ The checkpoint engine already produces periodic whole-system keyframes. Adding a
 deterministic input journal between keyframes makes execution reproducible, which turns
 "remember the last moment" into "remember every moment, and move through them." This
 enables whole-system reverse debugging (rewind, reverse-step, reverse breakpoints)
-inside the guest. Tracked in the epic and its sub-issues on the issue tracker.
+inside the guest. Tracked in the epic and its sub-issues on the issue tracker. Full
+design: [`docs/architecture/time-travel.md`](docs/architecture/time-travel.md).
 
 Planned milestones:
 - Deterministic replay core: catalog nondeterminism, input journal, deterministic
   preemption, virtualized time and entropy
 - Replay engine plus a divergence detector that proves a replay is byte-exact
 - Time-travel UX: keyframe retention, rewind-to, reverse execution
-- Tooling: a GDB reverse-execution bridge and, as an experiment, an MCP interface so an
-  AI agent can drive record and rewind as callable tools
+- Tooling: a GDB reverse-execution bridge
+- MCP interface: expose record, rewind, and reverse execution as tools an AI agent can
+  call, with a demo where an agent debugs a planted heisenbug by rewinding the machine
 
 ### Systems Roadmap
 
