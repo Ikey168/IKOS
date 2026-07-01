@@ -157,6 +157,18 @@ void checkpoint_clear_captures(void);
  * and the epoch is closed. Returns CHECKPOINT_OK or a negative code. */
 int checkpoint_writeback(snapshot_store_t* store);
 
+/* Stream the current epoch's pages (captured images + still-clean pages) into
+ * an already-open snapshot writer. Shared by checkpoint_writeback and the
+ * keyframe-ring writeback path (#195), which open the writer on a ring-selected
+ * region rather than the two-slot store. Returns CHECKPOINT_OK or a negative
+ * code; does not commit. */
+int checkpoint_stream_pages(snapshot_writer_t* writer);
+
+/* Finish an epoch once its checkpoint has durably committed: run the post-commit
+ * journal hook, drop the in-memory capture log, and close the epoch. Called by
+ * both writeback paths after their respective commit. */
+void checkpoint_after_commit(uint64_t epoch);
+
 /* Post-commit journal hook (#194). After a checkpoint's writeback has durably
  * committed, the engine calls this hook (when set) with the committed epoch, so
  * the deterministic-replay journal for that epoch can be persisted alongside

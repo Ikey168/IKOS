@@ -33,6 +33,7 @@ ships each piece:
 | Replay engine | Restores the nearest keyframe and re-drives forward to a target epoch plus offset | `kernel/replay_engine.c`, `kernel/replay_engine_sync.c` |
 | Divergence detector | Checksums system state per epoch on record and replay, flagging any nondeterminism leak with the epoch and component | `kernel/divergence.c`, `kernel/divergence_sync.c` |
 | Keyframe retention ring | Keeps the last N keyframes so rewind is not limited to the latest | `kernel/keyframe_ring.c` |
+| Keyframe retention store | Spreads checkpoints across N on-disk regions driven by the ring, persists the ring index (rebuilding it from region superblocks if torn), and restores an arbitrary retained keyframe by epoch | `kernel/keyframe_store.c`, `kernel/keyframe_store_sync.c` |
 | Rewind-to | The core verb: nearest keyframe at or before the target, then replay to the target | `kernel/rewind.c`, `kernel/rewind_sync.c` |
 | Reverse execution | reverse-step / reverse-continue as restore-prior-keyframe-and-replay | `kernel/reverse.c`, `kernel/reverse_sync.c` |
 | Reverse breakpoints/watchpoints | Scan backward to the last hit or the last write to a value, bounded by the ring | `kernel/revbreak.c`, `kernel/revbreak_sync.c` |
