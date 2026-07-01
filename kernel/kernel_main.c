@@ -28,6 +28,8 @@
 #include "../include/ramdisk.h"
 #include "../include/time_record.h"
 #include "../include/sched_record.h"
+#include "../include/entropy_record.h"
+#include "../include/journal_capture.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -248,11 +250,27 @@ void kernel_init(void) {
                                     CHECKPOINT_DEFAULT_INTERVAL_TICKS) == CHECKPOINT_OK) {
         kernel_print("Orthogonal persistence armed (checkpoint store ready)\n");
         /* With the checkpoint engine armed the session is being continuously
-         * checkpointed, so record the scheduler's context-switch decisions for
-         * every epoch (#193). The seam (#162) is OFF by default; turning it to
-         * RECORD lets a later rewind reproduce the exact schedule between
-         * keyframes. REPLAY is armed separately by the replay path. */
+         * checkpointed, so record the nondeterministic inputs for every epoch:
+         * the scheduler's context-switch decisions (#193/#162), the time/cycle
+         * reads (#163), and the entropy bytes drawn (#164). All three seams are
+         * OFF by default; RECORD lets a later rewind reproduce the exact
+         * execution between keyframes. REPLAY is armed by the replay path. */
         scheduler_preempt_set_mode(SCHED_REC_RECORD);
+        ktime_set_mode(TIME_REC_RECORD);
+        kentropy_set_mode(ENTROPY_REC_RECORD);
+
+        /* Arm per-epoch journal capture (#194): a journal store placed just
+         * past the checkpoint store's two slots, plus a checkpoint post-commit
+         * hook that writes each epoch's recorded deltas to that journal,
+         * committed alongside the checkpoint. The regions never overlap. */
+        if (journal_capture_init(persistence_dev,
+                                 CHECKPOINT_STORE_BASE_SECTOR + 1 +
+                                     2 * CHECKPOINT_STORE_SLOT_SECTORS,
+                                 64 /* slot_sectors */) == JOURNAL_OK) {
+            kernel_print("Replay journal armed (input capture ready)\n");
+        } else {
+            kernel_print("Replay journal disabled (no journal store)\n");
+        }
     } else {
         kernel_print("Orthogonal persistence disabled (no checkpoint store)\n");
     }
