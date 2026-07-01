@@ -93,6 +93,8 @@ on:
       - 'tests/timetravel_live_e2e.c'
       - 'scripts/test/timetravel_live_demo.sh'
       - 'tests/test_ide_durable_boot.c'
+      - 'tests/persistence_ide_resume_e2e.c'
+      - 'scripts/test/qemu_persistence_demo.sh'
       - '.github/workflows/persistence.yml'
   pull_request:
   workflow_dispatch:

@@ -60,12 +60,17 @@ Full design: [`docs/architecture/orthogonal-persistence.md`](docs/architecture/o
 # Headless proof against the real checkpoint engine (no emulator needed):
 ./scripts/test/persistence_demo.sh
 
-# The real thing in QEMU (boots IKOS, cuts power, reboots, resumes):
-./scripts/test/qemu_persistence_demo.sh   # needs qemu-system-x86_64 + a built image
+# Yank power, boot, resume - on the durable IDE store. Runs a headless resume
+# gate over the same IDE binding the kernel wires at boot (always), then the
+# booted-system QEMU run when an emulator + image are present:
+./scripts/test/qemu_persistence_demo.sh
 ```
 
 The checkpoint store can live on the volatile RAM disk (survives a warm reboot) or, for
-true power-cut durability, on a real IDE disk via `checkpoint_ide_bind`.
+true power-cut durability, on a real IDE disk via `checkpoint_ide_bind` - which the kernel
+now selects at boot, falling back to the RAM disk when no IDE drive is present. Recording of
+the yank-power/boot/resume cycle: `docs/media/qemu-resume.cast`
+(`asciinema play docs/media/qemu-resume.cast`).
 
 ## What actually works vs. roadmap
 
@@ -81,7 +86,7 @@ Being honest about maturity:
 | Context persistence + process-table/scheduler reconstruction on restore | Implemented, unit-tested |
 | End-to-end "yank power" proof over a file-backed disk | Passing in CI |
 | Boot store wired to a block device (RAM disk, volatile) | Implemented, unit-tested |
-| IDE-backed durable store (survives a real power cut) | Wired into the boot path (prefers the IDE disk, falls back to the RAM disk); durability across a power cut unit-tested |
+| IDE-backed durable store (survives a real power cut) | Wired into the boot path (prefers the IDE disk, falls back to the RAM disk); durability + counter-resume across a power cut gated headlessly in CI, with a scripted QEMU booted-system demo |
 | Process register/scheduler-state resume actually executing | Table/context restore done; scheduler bridge + QEMU boot pending |
 | Live boot/record/reverse-step end-to-end (headless CI gate + recording) | Passing in CI; QEMU boot layer runs when an image is present |
 | Persisting kernel-internal and driver state | v2 (v1 cold-inits the kernel/drivers and restores user spaces on top) |
@@ -381,7 +386,7 @@ Status:
 
 Short term:
 - [x] IDE-backed durable store wired into the in-kernel boot path
-- [ ] In-QEMU boot demo for the persistence resume
+- [x] In-QEMU boot demo for the persistence resume
 - [ ] UEFI boot support
 - [ ] Performance optimizations
 
