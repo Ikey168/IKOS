@@ -6,6 +6,7 @@
 #include "elf.h"
 #include "vmm.h"
 #include "interrupts.h"
+#include "vfs.h"
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
@@ -101,6 +102,7 @@ process_t* process_create_from_elf(const char* name, void* elf_data, size_t size
     /* Initialize file descriptors */
     for (int i = 0; i < MAX_OPEN_FILES; i++) {
         proc->fds[i].fd = -1;
+        proc->fds[i].path[0] = '\0';
     }
     proc->next_fd = 0;
     
@@ -363,6 +365,41 @@ process_t* process_get_next_ready(void) {
  */
 process_t* process_get_current(void) {
     return current_process;
+}
+
+/**
+ * Open a file into a process's descriptor table.
+ *
+ * Opens `path` via the VFS and records it in the first free descriptor slot,
+ * storing the backing path so orthogonal-persistence checkpoints can reopen the
+ * file on restore (see checkpoint_capture_filetable, #141). Returns the VFS file
+ * descriptor, or a negative error if the open failed or the table is full.
+ */
+int process_open_file(process_t* proc, const char* path, int flags) {
+    if (!proc || !path) {
+        return -1;
+    }
+
+    int vfd = vfs_open(path, (uint32_t)flags, 0);
+    if (vfd < 0) {
+        return vfd;
+    }
+
+    for (int i = 0; i < MAX_OPEN_FILES; i++) {
+        if (proc->fds[i].fd < 0) {
+            proc->fds[i].fd = vfd;
+            proc->fds[i].offset = 0;
+            proc->fds[i].flags = (uint32_t)flags;
+            proc->fds[i].file_data = NULL;
+            strncpy(proc->fds[i].path, path, FD_PATH_MAX - 1);
+            proc->fds[i].path[FD_PATH_MAX - 1] = '\0';
+            return vfd;
+        }
+    }
+
+    /* No free slot: don't leak the VFS handle. */
+    vfs_close(vfd);
+    return -1;
 }
 
 /**

@@ -58,6 +58,13 @@ const checkpoint_file_record_t* checkpoint_filetable_find(const checkpoint_filet
 
 uint32_t checkpoint_filetable_blob_size(uint32_t count);
 
+/* Restore decision for one record: true if it names a persistable file with a
+ * captured path, so restore should reopen it by path and seek to the saved
+ * offset; false if it must be severed (non-persistable kind, or no path was
+ * captured). Single-sources the capture/restore reopen-vs-sever choice so both
+ * sides agree. */
+bool checkpoint_file_record_reopenable(const checkpoint_file_record_t* r);
+
 /* ----- Kernel capture/restore adapters (kernel sync module) ----- */
 #define CHECKPOINT_TAG_FILETABLE 2
 

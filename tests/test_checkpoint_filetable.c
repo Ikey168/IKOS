@@ -85,7 +85,33 @@ int main(void) {
     buf[2] ^= 0xFF;
     CHECK(!checkpoint_filetable_deserialize(&out, buf, w), "bad magic rejected");
 
-    printf("Test 4: full table spans multiple pages\n");
+    printf("Test 4: reopen-vs-sever decision\n");
+    /* A regular file with a captured path is reopened; a regular file whose path
+     * was not captured, and any non-persistable kind, are severed. This is the
+     * decision the restore adapter keys on, so file-backed state actually comes
+     * back instead of being severed for want of a path. */
+    {
+        checkpoint_file_record_t file_with_path = in.records[0]; /* kind 0, "/etc/motd" */
+        CHECK(checkpoint_file_record_reopenable(&file_with_path),
+              "regular file with a path is reopenable");
+
+        checkpoint_file_record_t file_no_path = in.records[0];
+        set_path(&file_no_path, "");
+        CHECK(!checkpoint_file_record_reopenable(&file_no_path),
+              "regular file without a captured path is severed");
+
+        checkpoint_file_record_t sock = in.records[1]; /* kind 1 socket, no path */
+        CHECK(!checkpoint_file_record_reopenable(&sock), "socket is severed");
+
+        checkpoint_file_record_t dev = in.records[0];
+        dev.kind = 3 /* EXTSTATE_DEVICE */;
+        CHECK(!checkpoint_file_record_reopenable(&dev),
+              "device with a path is still severed (non-persistable kind)");
+
+        CHECK(!checkpoint_file_record_reopenable(0), "NULL record is not reopenable");
+    }
+
+    printf("Test 5: full table spans multiple pages\n");
     checkpoint_filetable_t big;
     memset(&big, 0, sizeof(big));
     big.pid = 1; big.count = CHECKPOINT_FILETABLE_MAX;
