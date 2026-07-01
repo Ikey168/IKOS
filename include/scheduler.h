@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "sched_record.h"
 
 /* Task States */
 typedef enum {
@@ -126,6 +127,14 @@ task_t* priority_pick_next(void);
 /* Timer interrupt handling */
 void timer_interrupt_handler(void);
 void setup_timer_interrupt(uint32_t frequency);
+
+/* Deterministic preemption controls (#162). Default mode is SCHED_REC_OFF, so
+ * preemption behaves exactly as before until a record or replay run enables it.
+ * scheduler_preempt_points() returns the per-epoch switch points for the
+ * journal; scheduler_preempt_load() installs them for a replay. */
+void     scheduler_preempt_set_mode(sched_rec_mode_t mode);
+uint32_t scheduler_preempt_points(const uint64_t** out);
+int      scheduler_preempt_load(uint64_t epoch, const uint64_t* pts, uint32_t n);
 
 /* System calls */
 void sys_yield(void);
