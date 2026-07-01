@@ -1,6 +1,7 @@
-# IKOS Documentation
+# Laplace Documentation
 
-IKOS is a **time-traveling debugger built as an operating system**: an x86/x86_64
+Laplace (formerly IKOS) is a **time-traveling debugger built as an operating
+system**: an x86/x86_64
 microkernel that records every nondeterministic input as it runs, so any past
 moment of the whole machine can be reconstructed and stepped backward (from gdb
 or from an MCP client). The substrate that makes it possible is **orthogonal
@@ -22,7 +23,7 @@ Start with the root [`README.md`](../README.md) for the project overview and the
   deterministic replay core and the MCP interface, with a table mapping every
   stage to the module that ships it.
 - [Reverse debugging with gdb (how-to)](testing/reverse-debugging.md) drive
-  `reverse-stepi` / `reverse-continue` against a running IKOS over the serial
+  `reverse-stepi` / `reverse-continue` against a running Laplace over the serial
   port.
 - [Driving time-travel from an MCP client (how-to)](testing/mcp-server.md) list
   checkpoints and drive rewind / reverse execution as JSON-RPC tools an agent can

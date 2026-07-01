@@ -1,21 +1,32 @@
-# IKOS
+# Laplace
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Orthogonal Persistence](https://github.com/Ikey168/IKOS/actions/workflows/persistence.yml/badge.svg)](https://github.com/Ikey168/IKOS/actions/workflows/persistence.yml)
+[![Orthogonal Persistence](https://github.com/Ikey168/Laplace/actions/workflows/persistence.yml/badge.svg)](https://github.com/Ikey168/Laplace/actions/workflows/persistence.yml)
 [![Architecture](https://img.shields.io/badge/Architecture-x86__64-blue.svg)]()
 [![Kernel](https://img.shields.io/badge/Kernel-Microkernel-orange.svg)]()
 
-> **IKOS is a time-traveling debugger built as an operating system.** Record a
-> session, then scrub the whole machine backward: step back from the crash,
-> run backward to a breakpoint, or ask where a value was last written and land
-> there.
+> *"An intellect which at a certain moment would know all forces that set nature
+> in motion, and all positions of all items of which nature is composed... for
+> such an intellect nothing would be uncertain, and the future just like the
+> past would be present before its eyes."*
+>
+> Pierre-Simon Laplace, *A Philosophical Essay on Probabilities* (1814)
+
+**Laplace is a time-traveling debugger built as an operating system.** Record a
+session, then scrub the whole machine backward: step back from the crash, run
+backward to a breakpoint, or ask where a value was last written and land there.
 
 Heisenbugs die on the operating table: rerun the program and the schedule
 shifts, the timer reads change, the entropy differs, and the crash is gone.
-IKOS attacks that at the root. The OS records every nondeterministic input as
+Laplace attacks that at the root. The OS records every nondeterministic input as
 it runs, so any past moment of the whole machine can be reconstructed exactly,
 as many times as you need. The bug cannot escape into a different interleaving,
 because the interleaving is part of the recording.
+
+The name is the thesis. Laplace's demon, the intellect in the epigraph, is
+fiction in physics; here it is an implementation: the present state plus the
+recorded journal determines every past moment of the machine, and the kernel
+computes it on demand.
 
 Two front ends drive it:
 
@@ -24,7 +35,7 @@ Two front ends drive it:
 - **MCP**: `list_checkpoints`, `rewind_to`, `reverse_step`, and
   `watch_last_write` exposed as JSON-RPC tools, so an AI agent can drive the
   machine backward. Agents are bad at exactly what this is good at: reproducing
-  a flaky bug and keeping the world stable between attempts. IKOS turns an
+  a flaky bug and keeping the world stable between attempts. Laplace turns an
   agent into a time-traveling debugger.
 
 ## See it
@@ -91,7 +102,7 @@ How-tos: [gdb reverse debugging](docs/testing/reverse-debugging.md) and
 
 Record/replay debuggers exist: rr records single Linux processes from the
 outside, and emulator-level record/replay (QEMU, Simics) records a virtual
-machine from underneath. IKOS moves the recorder inside: time travel is an OS
+machine from underneath. Laplace moves the recorder inside: time travel is an OS
 service. The kernel owns its keyframes, its input journal, its replay engine,
 and a divergence detector that checksums system state every epoch on both runs
 to prove each reconstruction is byte-exact. Nothing is instrumented and no
@@ -117,7 +128,7 @@ Full design and the module map:
 
 ## The substrate: orthogonal persistence
 
-The recorder falls out of a stranger property: IKOS is a persistent OS. There
+The recorder falls out of a stranger property: Laplace is a persistent OS. There
 is no save, no load, and no shutdown; the running system is the durable state.
 Pull the power cord, plug it back in, and your work is where you left it. The
 periodic whole-system checkpoints that make that true are exactly the keyframes
@@ -211,8 +222,9 @@ with end-to-end tests and CI today.
 
 ## The machine
 
-The system being recorded is IKOS's own microkernel for x86/x86_64 consumer
-devices. Two of its properties are what make the debugger work:
+The system being recorded is Laplace's own microkernel for x86/x86_64 consumer
+devices (the project was formerly named IKOS, and the source tree still carries
+that name in places). Two of its properties are what make the debugger work:
 
 - **Copy-on-write virtual memory.** A keyframe is a COW marking pass: mark every
   writable page read-only, copy nothing, and capture a page lazily on its first
@@ -279,7 +291,7 @@ kernel modules with the host `gcc` and drives them headlessly, so you can watch
 record / rewind / reverse work before ever booting the OS:
 
 ```bash
-git clone https://github.com/Ikey168/IKOS.git && cd IKOS
+git clone https://github.com/Ikey168/Laplace.git && cd Laplace
 
 ./scripts/test/timetravel_live_demo.sh   # boot, record, reverse-step, verify
 ./scripts/test/mcp_heisenbug_demo.sh     # an agent hunts a heisenbug by rewinding
@@ -306,7 +318,7 @@ gdb kernel/kernel.elf
 (gdb) continue
 ```
 
-Backward debugging talks to IKOS's own stub instead, over the serial port
+Backward debugging talks to Laplace's own stub instead, over the serial port
 (COM1); the stub owns the machine's recorded history, which QEMU's gdb server
 knows nothing about. The MCP server listens on COM2 so the two front ends never
 collide. See [Using the debugger](#using-the-debugger) above and
@@ -316,7 +328,7 @@ collide. See [Using the debugger](#using-the-debugger) above and
 
 | Target | Description |
 |--------|-------------|
-| `make all` | Build complete IKOS system |
+| `make all` | Build complete Laplace system |
 | `make bootloader` | Build all bootloader variants |
 | `make kernel` | Build kernel components |
 | `make test` | Run comprehensive test suite |
@@ -347,7 +359,7 @@ paging, real hardware) live under `scripts/test/`.
 ## Project Structure
 
 ```
-IKOS/
+Laplace/
   boot/                  Multi-stage bootloader implementations
     boot.asm             Basic real mode bootloader
     boot_enhanced.asm    Enhanced bootloader with memory detection
@@ -381,7 +393,7 @@ IKOS/
 ## Roadmap
 
 The time-travel debugging stack and the persistence substrate it rides on are the
-mature parts of IKOS, with unit tests and CI demos (see the sections above). The items
+mature parts of Laplace, with unit tests and CI demos (see the sections above). The items
 below are the broader OS scaffolding, in rough priority order.
 
 Recently landed: the IDE-backed durable store wired into the boot path, the in-QEMU
@@ -410,8 +422,8 @@ Contributions are welcome from developers of all skill levels.
 ### Development Setup
 1. Fork and clone the repository:
    ```bash
-   git clone https://github.com/yourusername/IKOS.git
-   cd IKOS
+   git clone https://github.com/yourusername/Laplace.git
+   cd Laplace
    ```
 
 2. Set up the development environment:
@@ -471,7 +483,9 @@ the full text.
 
 ## Acknowledgments
 
-- **Contributors**: thanks to everyone who has contributed to IKOS
+- **Namesake**: Pierre-Simon Laplace, whose demon saw the past as clearly as the
+  present given the state of the world and the forces acting on it
+- **Contributors**: thanks to everyone who has contributed to Laplace
 - **Community**: thanks to the open-source OS development community
 - **Tools**: built with GCC, NASM, QEMU, and Git
 - **Inspiration**: the orthogonal-persistence lineage of KeyKOS, EROS, Phantom OS, and
