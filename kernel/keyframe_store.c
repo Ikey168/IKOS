@@ -220,3 +220,14 @@ int keyframe_store_load_latest(keyframe_store_t* ks, snapshot_reader_t* reader,
 const keyframe_ring_t* keyframe_store_ring(const keyframe_store_t* ks) {
     return ks ? &ks->ring : NULL;
 }
+
+snapshot_store_t* keyframe_store_region_for(keyframe_store_t* ks, uint64_t target,
+                                            uint64_t* epoch_out) {
+    if (!ks || !ks->initialized) return NULL;
+    uint32_t slot = 0;
+    uint64_t e = 0;
+    if (!keyframe_ring_find(&ks->ring, target, &slot, &e)) return NULL;
+    if (region_open(ks, slot) != KEYFRAME_STORE_OK) return NULL;
+    if (epoch_out) *epoch_out = e;
+    return &ks->region;
+}
