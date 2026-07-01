@@ -359,6 +359,37 @@ static int writeback_clean_pages(snapshot_writer_t* writer) {
     return CHECKPOINT_OK;
 }
 
+int checkpoint_stream_pages(snapshot_writer_t* writer) {
+    if (!writer) {
+        return CHECKPOINT_ERR_PARAM;
+    }
+
+    /* 1. Modified pages: the captured pre-checkpoint images. */
+    for (checkpoint_capture_t* c = g_captures; c; c = c->next) {
+        if (snapshot_writer_add_page(writer, c->pid, c->virt_addr, c->flags,
+                                     c->data) != SNAPSHOT_OK) {
+            return CHECKPOINT_ERR_IO;
+        }
+    }
+
+    /* 2. Still-clean pages: live content (== checkpoint-time content). */
+    return writeback_clean_pages(writer);
+}
+
+void checkpoint_after_commit(uint64_t epoch) {
+    /* Persist this epoch's input journal alongside the just-committed
+     * checkpoint (#194). Advisory: the checkpoint is already durable, so a
+     * journal failure does not fail the checkpoint (replay simply cannot
+     * re-drive past this keyframe until a later epoch journals cleanly). */
+    if (g_journal_hook) {
+        g_journal_hook(epoch);
+    }
+
+    /* Drop the in-memory snapshot log and close the epoch. */
+    checkpoint_clear_captures();
+    g_checkpoint.epoch_open = false;
+}
+
 int checkpoint_writeback(snapshot_store_t* store) {
     if (!store) {
         return CHECKPOINT_ERR_PARAM;
@@ -369,36 +400,17 @@ int checkpoint_writeback(snapshot_store_t* store) {
         return CHECKPOINT_ERR_IO;
     }
 
-    /* 1. Modified pages: the captured pre-checkpoint images. */
-    for (checkpoint_capture_t* c = g_captures; c; c = c->next) {
-        if (snapshot_writer_add_page(&writer, c->pid, c->virt_addr, c->flags,
-                                     c->data) != SNAPSHOT_OK) {
-            return CHECKPOINT_ERR_IO;
-        }
-    }
-
-    /* 2. Still-clean pages: live content (== checkpoint-time content). */
-    int rc = writeback_clean_pages(&writer);
+    int rc = checkpoint_stream_pages(&writer);
     if (rc != CHECKPOINT_OK) {
         return rc;
     }
 
-    /* 3. Finalize: slot CRC + the superblock flip (the single commit point). */
+    /* Finalize: slot CRC + the superblock flip (the single commit point). */
     if (snapshot_store_commit(&writer) != SNAPSHOT_OK) {
         return CHECKPOINT_ERR_IO;
     }
 
-    /* 3b. Persist this epoch's input journal alongside the just-committed
-     * checkpoint (#194). Advisory: the checkpoint is already durable, so a
-     * journal failure does not fail the checkpoint (replay simply cannot
-     * re-drive past this keyframe until a later epoch journals cleanly). */
-    if (g_journal_hook) {
-        g_journal_hook(g_checkpoint.current_epoch);
-    }
-
-    /* 4. Drop the in-memory snapshot log and close the epoch. */
-    checkpoint_clear_captures();
-    g_checkpoint.epoch_open = false;
+    checkpoint_after_commit(g_checkpoint.current_epoch);
     return CHECKPOINT_OK;
 }
 

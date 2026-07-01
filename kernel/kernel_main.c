@@ -30,6 +30,7 @@
 #include "../include/sched_record.h"
 #include "../include/entropy_record.h"
 #include "../include/journal_capture.h"
+#include "../include/keyframe_store.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -270,6 +271,22 @@ void kernel_init(void) {
             kernel_print("Replay journal armed (input capture ready)\n");
         } else {
             kernel_print("Replay journal disabled (no journal store)\n");
+        }
+
+        /* Arm the keyframe retention store (#195): keep the last N checkpoints
+         * across N regions (driven by the retention ring), placed on the device
+         * past the checkpoint store and the journal so nothing overlaps. This
+         * lets a rewind restore any of the last N moments, not only the latest;
+         * the ring index is persisted so the retained window survives a reboot. */
+        uint32_t keyframe_base = CHECKPOINT_STORE_BASE_SECTOR
+                               + 1 + 2 * CHECKPOINT_STORE_SLOT_SECTORS /* checkpoint store */
+                               + 1 + 2 * 64;                           /* journal store */
+        if (keyframe_store_arm(persistence_dev, keyframe_base,
+                               3 /* index sectors */, 8 /* retained keyframes */,
+                               64 /* region slot sectors */) == KEYFRAME_STORE_OK) {
+            kernel_print("Keyframe retention armed (last N checkpoints retained)\n");
+        } else {
+            kernel_print("Keyframe retention disabled (no keyframe store)\n");
         }
     } else {
         kernel_print("Orthogonal persistence disabled (no checkpoint store)\n");
