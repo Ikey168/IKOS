@@ -5,12 +5,23 @@
 #include "scheduler.h"
 #include "memory.h"
 #include "interrupts.h"
+#include "sched_record.h"
 #include <string.h>
 
 /* Orthogonal persistence (#117): drive the periodic checkpoint trigger from
  * the timer tick. Forward-declared to avoid pulling the checkpoint/store
  * headers (and their block-device deps) into the scheduler. */
 extern bool checkpoint_tick(void);
+
+/* Deterministic preemption (#162): record the logical point of every context
+ * switch so a replay can reproduce the schedule. checkpoint_current_epoch()
+ * keys the per-epoch points; forward-declared for the same reason as above. */
+extern uint64_t checkpoint_current_epoch(void);
+
+#define SCHED_REC_MAX_POINTS 256
+static uint64_t g_sched_points[SCHED_REC_MAX_POINTS];
+static sched_record_t g_sched_rec;
+static uint64_t g_sched_lclock = 0;   /* logical clock since the current epoch */
 
 /* Global scheduler state */
 static task_t* current_task = NULL;
@@ -50,7 +61,12 @@ int scheduler_init(sched_policy_t policy, uint32_t time_slice) {
     default_time_slice = time_slice;
     stats.policy = policy;
     stats.time_slice = time_slice;
-    
+
+    /* Deterministic preemption starts OFF: identical behavior to before, until
+     * a record or replay run enables it (#162). */
+    sched_record_init(&g_sched_rec, SCHED_REC_OFF, g_sched_points, SCHED_REC_MAX_POINTS);
+    g_sched_lclock = 0;
+
     // Create idle task
     idle_task = create_idle_task();
     if (!idle_task) {
@@ -208,25 +224,56 @@ void scheduler_tick(void) {
     
     // Update current task time
     current_task->cpu_time++;
-    
+
+    /* Deterministic preemption (#162): advance the per-epoch logical clock and
+     * route the preemption decision through the record/replay filter. In OFF
+     * mode (the default) the natural round-robin decision passes through
+     * unchanged; RECORD notes the switch point; REPLAY forces switches at the
+     * recorded points so real tick timing cannot perturb the schedule. */
+    if (g_sched_rec.mode != SCHED_REC_OFF) {
+        uint64_t epoch = checkpoint_current_epoch();
+        if (epoch != g_sched_rec.epoch) {
+            sched_record_begin_epoch(&g_sched_rec, epoch);
+            g_sched_lclock = 0;
+        }
+    }
+    g_sched_lclock++;
+
     // Decrement time slice for current task
     if (current_task->time_slice > 0) {
         current_task->time_slice--;
     }
-    
-    // Check if time slice expired (for Round Robin)
-    if (current_policy == SCHED_ROUND_ROBIN && current_task->time_slice == 0) {
+
+    // Preempt when Round Robin's slice expires, filtered for deterministic replay
+    bool want = (current_policy == SCHED_ROUND_ROBIN && current_task->time_slice == 0);
+    if (sched_record_decide(&g_sched_rec, want, g_sched_lclock)) {
         // Reset time slice
         current_task->time_slice = current_task->quantum;
-        
+
         // Move to end of ready queue and schedule
         if (current_task->state == TASK_RUNNING) {
             current_task->state = TASK_READY;
             ready_queue_add(current_task);
         }
-        
+
         schedule();
     }
+}
+
+/* ---- Deterministic preemption controls (#162) ----
+ * Thin wrappers the replay engine (#165) uses to drive the record/replay of
+ * preemption points. Default mode is OFF, so these have no effect until called.
+ */
+void scheduler_preempt_set_mode(sched_rec_mode_t mode) {
+    sched_record_set_mode(&g_sched_rec, mode);
+}
+
+uint32_t scheduler_preempt_points(const uint64_t** out) {
+    return sched_record_points(&g_sched_rec, out);
+}
+
+int scheduler_preempt_load(uint64_t epoch, const uint64_t* pts, uint32_t n) {
+    return sched_record_load(&g_sched_rec, epoch, pts, n);
 }
 
 /**
