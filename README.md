@@ -89,6 +89,28 @@ Being honest about maturity:
 The broader subsystems below describe the project's overall scope; several are partial
 or aspirational. The persistence stack is the part with end-to-end tests and CI today.
 
+## Time-travel: scrub the machine backwards
+
+Because the checkpoint engine already snapshots the whole system periodically, IKOS goes a
+step further than "resume the last moment": it records the nondeterministic inputs between
+keyframes (preemptions, timer and cycle reads, entropy) into a CRC-protected journal, so
+any past moment can be reconstructed by restoring the nearest keyframe and replaying
+forward. That makes the running system rewindable: `rewind-to <epoch>` lands at a past
+moment, and reverse-step / reverse-continue walk it backward, driven from a normal gdb
+session (`reverse-stepi`).
+
+```bash
+# Headless proof: record a session, then scrub it backward and show every
+# reconstructed past moment matches the recorded timeline.
+./scripts/test/scrub_demo.sh
+
+# Headless proof that a recorded session replays byte-identically:
+./scripts/test/timetravel_demo.sh
+```
+
+Full design and the module map: [`docs/architecture/time-travel.md`](docs/architecture/time-travel.md);
+driving it from gdb: [`docs/testing/reverse-debugging.md`](docs/testing/reverse-debugging.md).
+
 ## About
 
 **IKOS** is a **microkernel-based operating system** for **x86/x86_64 consumer devices**
@@ -316,23 +338,25 @@ IKOS/
 
 The near-term focus is the persistence stack and the capabilities that build on it.
 
-### Time-Travel Debugging (in design)
+### Time-Travel Debugging
 
-The checkpoint engine already produces periodic whole-system keyframes. Adding a
-deterministic input journal between keyframes makes execution reproducible, which turns
-"remember the last moment" into "remember every moment, and move through them." This
-enables whole-system reverse debugging (rewind, reverse-step, reverse breakpoints)
-inside the guest. Tracked in the epic and its sub-issues on the issue tracker. Full
-design: [`docs/architecture/time-travel.md`](docs/architecture/time-travel.md).
+The checkpoint engine produces periodic whole-system keyframes; a deterministic input
+journal between keyframes makes execution reproducible, which turns "remember the last
+moment" into "remember every moment, and move through them" (see the
+[time-travel section](#time-travel-scrub-the-machine-backwards) above). Full design and the
+module map: [`docs/architecture/time-travel.md`](docs/architecture/time-travel.md).
 
-Planned milestones:
-- Deterministic replay core: catalog nondeterminism, input journal, deterministic
-  preemption, virtualized time and entropy
-- Replay engine plus a divergence detector that proves a replay is byte-exact
-- Time-travel UX: keyframe retention, rewind-to, reverse execution
-- Tooling: a GDB reverse-execution bridge
-- MCP interface: expose record, rewind, and reverse execution as tools an AI agent can
-  call, with a demo where an agent debugs a planted heisenbug by rewinding the machine
+Status:
+- Deterministic replay core (nondeterminism catalog, input journal, deterministic
+  preemption, virtualized time and entropy): implemented, unit-tested
+- Replay engine plus a divergence detector that proves a replay is byte-exact: implemented,
+  unit-tested, with a headless byte-identical end-to-end demo
+- Time-travel UX (keyframe retention, rewind-to, reverse execution, reverse
+  breakpoints/watchpoints): implemented, unit-tested, with a headless scrub-backwards demo
+- Tooling: a GDB reverse-execution bridge (implemented, unit-tested)
+- MCP interface (planned): expose record, rewind, and reverse execution as tools an AI
+  agent can call, with a demo where an agent debugs a planted heisenbug by rewinding the
+  machine
 
 ### Systems Roadmap
 

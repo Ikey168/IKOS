@@ -58,6 +58,8 @@ on:
       - 'tests/test_gdbstub.c'
       - 'tests/timetravel_e2e.c'
       - 'scripts/test/timetravel_demo.sh'
+      - 'tests/scrub_e2e.c'
+      - 'scripts/test/scrub_demo.sh'
       - '.github/workflows/persistence.yml'
   pull_request:
   workflow_dispatch:
@@ -126,5 +128,7 @@ jobs:
         run: bash scripts/test/persistence_demo.sh
       - name: Time-travel "record, replay, byte-identical" demo
         run: bash scripts/test/timetravel_demo.sh
+      - name: Time-travel "scrub the machine backwards" demo
+        run: bash scripts/test/scrub_demo.sh
       - name: In-QEMU boot demo (skips gracefully if QEMU is unavailable)
         run: bash scripts/test/qemu_persistence_demo.sh
