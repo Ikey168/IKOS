@@ -90,6 +90,8 @@ on:
       - 'kernel/mcp_server_sync.c'
       - 'include/mcp_server.h'
       - 'tests/test_mcp_server.c'
+      - 'tests/timetravel_live_e2e.c'
+      - 'scripts/test/timetravel_live_demo.sh'
       - '.github/workflows/persistence.yml'
   pull_request:
   workflow_dispatch:
@@ -169,5 +171,7 @@ jobs:
         run: bash scripts/test/scrub_demo.sh
       - name: MCP heisenbug demo (agent rewinds to find the bug)
         run: bash scripts/test/mcp_heisenbug_demo.sh
+      - name: Live boot/record/reverse-step end-to-end (#200)
+        run: bash scripts/test/timetravel_live_demo.sh
       - name: In-QEMU boot demo (skips gracefully if QEMU is unavailable)
         run: bash scripts/test/qemu_persistence_demo.sh

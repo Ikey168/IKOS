@@ -83,7 +83,7 @@ Being honest about maturity:
 | Boot store wired to a block device (RAM disk, volatile) | Implemented, unit-tested |
 | IDE-backed durable store (survives a real power cut) | Adapter implemented + unit-tested; in-kernel wiring + QEMU boot pending |
 | Process register/scheduler-state resume actually executing | Table/context restore done; scheduler bridge + QEMU boot pending |
-| In-QEMU boot demo + README recording | Script ready; needs QEMU + a bootable image |
+| Live boot/record/reverse-step end-to-end (headless CI gate + recording) | Passing in CI; QEMU boot layer runs when an image is present |
 | Persisting kernel-internal and driver state | v2 (v1 cold-inits the kernel/drivers and restores user spaces on top) |
 
 The broader subsystems below describe the project's overall scope; several are partial
@@ -100,6 +100,11 @@ moment, and reverse-step / reverse-continue walk it backward, driven from a norm
 session (`reverse-stepi`).
 
 ```bash
+# Boot, record, reverse-step: the whole live stack (keyframe store, journal,
+# divergence detector, MCP front end) drives an agent through rewind/reverse and
+# confirms every reconstructed moment matches with no divergence leak.
+./scripts/test/timetravel_live_demo.sh
+
 # Headless proof: record a session, then scrub it backward and show every
 # reconstructed past moment matches the recorded timeline.
 ./scripts/test/scrub_demo.sh
@@ -108,8 +113,22 @@ session (`reverse-stepi`).
 ./scripts/test/timetravel_demo.sh
 ```
 
+Recording of the live boot -> record -> reverse-step run (asciicast, playable with
+`asciinema play docs/media/timetravel-live.cast`):
+
+```
+=== In-QEMU-style time-travel end-to-end (#200) ===
+[record] retained window: epochs 3..6 (last 4 of 6)
+[agent] driving rewind/reverse over the MCP JSON-RPC loop
+        rewound to epoch=5 offset=0  ->  stepped back to epoch=4  ->  epoch=3
+[verify] epoch 3..6: state=match divergence=clean
+  divergence detector reports NO leak over the live run
+PASSED: booted, recorded, reverse-stepped, no leak
+```
+
 Full design and the module map: [`docs/architecture/time-travel.md`](docs/architecture/time-travel.md);
-driving it from gdb: [`docs/testing/reverse-debugging.md`](docs/testing/reverse-debugging.md).
+driving it from gdb: [`docs/testing/reverse-debugging.md`](docs/testing/reverse-debugging.md);
+from an MCP client: [`docs/testing/mcp-server.md`](docs/testing/mcp-server.md).
 
 ## About
 
