@@ -114,6 +114,59 @@ int main(void) {
         CHECK(extstate_sever_fd(0) == false, "NULL flags safe");
     }
 
+    /* === 5. DMA / IPC endpoints + reconnection contract (#146) === */
+    printf("Test 5: DMA / IPC endpoint severing\n");
+    {
+        /* A process holding an in-flight DMA mapping, a device handle, an IPC
+         * socket endpoint, and a regular-file-backed mapping. */
+        extstate_endpoint_t eps[4];
+        eps[0].kind = EXTSTATE_DMA_BUFFER; eps[0].flags = EXTSTATE_FLAG_OPEN; eps[0].owner = 7; eps[0].generation = 0;
+        eps[1].kind = EXTSTATE_DEVICE;     eps[1].flags = EXTSTATE_FLAG_OPEN; eps[1].owner = 7; eps[1].generation = 0;
+        eps[2].kind = EXTSTATE_SOCKET;     eps[2].flags = EXTSTATE_FLAG_OPEN; eps[2].owner = 7; eps[2].generation = 0;
+        eps[3].kind = EXTSTATE_REGULAR_FILE; eps[3].flags = EXTSTATE_FLAG_OPEN; eps[3].owner = 7; eps[3].generation = 0;
+
+        CHECK(extstate_endpoint_persistable(&eps[0]) == false, "DMA endpoint non-persistable");
+        CHECK(extstate_endpoint_persistable(&eps[3]) == true,  "file-backed endpoint persistable");
+
+        int n = extstate_endpoint_sever_all(eps, 4);
+        CHECK(n == 3, "the DMA, device, and socket endpoints are severed");
+        CHECK(extstate_endpoint_status(&eps[0]) == EXTSTATE_SEVERED, "DMA reports severed");
+        CHECK(extstate_endpoint_status(&eps[3]) == EXTSTATE_OK,      "file-backed endpoint untouched");
+        CHECK(extstate_endpoint_needs_reconnect(&eps[2]) == true,    "socket needs reconnect");
+
+        /* Idempotent: a second restore pass severs nothing new. */
+        CHECK(extstate_endpoint_sever_all(eps, 4) == 0, "second sever pass is a no-op");
+        CHECK(extstate_endpoint_sever(0) == false, "NULL endpoint safe");
+        CHECK(extstate_endpoint_sever_all(0, 4) == 0, "NULL array safe");
+    }
+
+    printf("Test 6: reconnection contract\n");
+    {
+        extstate_endpoint_t dma;
+        dma.kind = EXTSTATE_DMA_BUFFER; dma.flags = EXTSTATE_FLAG_OPEN; dma.owner = 9; dma.generation = 0;
+
+        /* Restore severs it; the owner observes the defined error. */
+        CHECK(extstate_endpoint_sever(&dma) == true, "DMA severed on restore");
+        CHECK(extstate_endpoint_status(&dma) == EXTSTATE_SEVERED, "owner sees EXTSTATE_SEVERED");
+
+        /* Owner re-establishes the mapping, then calls reconnect. */
+        CHECK(extstate_endpoint_reconnect(&dma) == true, "reconnect transitions from severed");
+        CHECK(extstate_endpoint_status(&dma) == EXTSTATE_OK, "endpoint usable again");
+        CHECK(extstate_endpoint_needs_reconnect(&dma) == false, "no longer needs reconnect");
+        CHECK((dma.flags & EXTSTATE_FLAG_RECONNECTED) != 0, "reconnected flag set");
+        CHECK(dma.generation == 1, "generation bumped so stale refs can tell");
+
+        /* A second reconnect is a safe no-op. */
+        CHECK(extstate_endpoint_reconnect(&dma) == false, "double reconnect is a no-op");
+        CHECK(dma.generation == 1, "generation not bumped twice");
+
+        /* A fresh checkpoint can sever the reconnected endpoint again. */
+        CHECK(extstate_endpoint_sever(&dma) == true, "reconnected endpoint can be re-severed");
+        CHECK((dma.flags & EXTSTATE_FLAG_RECONNECTED) == 0, "re-sever clears the reconnected flag");
+
+        CHECK(extstate_endpoint_reconnect(0) == false, "NULL reconnect safe");
+    }
+
     printf("\n%s (%d failure%s)\n", failures ? "FAILED" : "PASSED",
            failures, failures == 1 ? "" : "s");
     return failures ? 1 : 0;
