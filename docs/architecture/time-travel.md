@@ -13,6 +13,38 @@ Both build on the existing checkpoint engine (`kernel/checkpoint.c`,
 reconstruct path). See [orthogonal-persistence.md](orthogonal-persistence.md) for that
 foundation. Work is tracked in the epic and its sub-issues on the issue tracker.
 
+The deterministic replay core and the time-travel UX are implemented; the
+["Implemented architecture"](#implemented-architecture) section below maps the design to
+the modules that ship it, and `scripts/test/scrub_demo.sh` runs the whole pipeline
+headlessly.
+
+## Implemented architecture
+
+The pipeline, from recording inputs to scrubbing the machine backward, and the module that
+ships each piece:
+
+| Stage | What it does | Modules |
+|-------|--------------|---------|
+| Input journal | Records the nondeterministic inputs between two keyframes (keystrokes, disk completions, timer/cycle reads, entropy), each tagged with epoch and a logical clock, in a CRC-protected double-buffered store | `kernel/checkpoint_journal.c` |
+| Deterministic preemption | Records the logical point of every context switch on a live run and forces switches at the same points on replay | `kernel/sched_record.c` + the `scheduler_tick` seam |
+| Virtualized time | Records RDTSC/timer reads and returns the recorded values on replay | `kernel/time_record.c`, `kernel/time_record_sync.c` |
+| Deterministic entropy | Records entropy draws and returns the recorded bytes on replay | `kernel/entropy_record.c`, `kernel/entropy_record_sync.c` |
+| Replay engine | Restores the nearest keyframe and re-drives forward to a target epoch plus offset | `kernel/replay_engine.c`, `kernel/replay_engine_sync.c` |
+| Divergence detector | Checksums system state per epoch on record and replay, flagging any nondeterminism leak with the epoch and component | `kernel/divergence.c`, `kernel/divergence_sync.c` |
+| Keyframe retention ring | Keeps the last N keyframes so rewind is not limited to the latest | `kernel/keyframe_ring.c` |
+| Rewind-to | The core verb: nearest keyframe at or before the target, then replay to the target | `kernel/rewind.c`, `kernel/rewind_sync.c` |
+| Reverse execution | reverse-step / reverse-continue as restore-prior-keyframe-and-replay | `kernel/reverse.c`, `kernel/reverse_sync.c` |
+| Reverse breakpoints/watchpoints | Scan backward to the last hit or the last write to a value, bounded by the ring | `kernel/revbreak.c`, `kernel/revbreak_sync.c` |
+| GDB bridge | Maps gdb `reverse-stepi` / `reverse-continue` (RSP bs/bc) onto the reverse engine | `kernel/gdbstub.c`, `kernel/gdbstub_sync.c` |
+
+Each stage has a host-side unit test under `tests/` and a freestanding compile check in CI.
+Two end-to-end demos tie them together, both headless: `scripts/test/timetravel_demo.sh`
+records a session, persists it to the journal, replays it, and asserts the final state is
+byte-identical; `scripts/test/scrub_demo.sh` records a session and then scrubs it backward
+(rewind and reverse-step), showing the reconstructed state at each past moment matches the
+recorded timeline. See also [reverse-debugging.md](../testing/reverse-debugging.md) for
+driving it from gdb.
+
 ## Why this is tractable here
 
 The checkpoint engine already produces periodic whole-system keyframes. A keyframe is a
@@ -78,13 +110,13 @@ A read of the kernel established the facts that shape the plan:
 The input journal referenced above is the deliverable of the next issue and reuses the
 double-buffered slot and CRC conventions in `kernel/checkpoint_disk.c`.
 
-#### Decision: not started pending review
+#### Outcome
 
-Per the issue, no implementation begins until this catalog is reviewed. The catalog fixes
-the scope of the deterministic replay core: the primary work is deterministic preemption,
-the input journal for keyboard input and entropy, and a gate for RDTSC before it goes
-live. RDTSC (stub today), the hardcoded MAC, and severed network randomness need no work
-now.
+This catalog fixed the scope of the deterministic replay core: the primary work was
+deterministic preemption, the input journal for keyboard input and entropy, and a gate for
+RDTSC before it goes live; the RDTSC stub, the hardcoded MAC, and severed network
+randomness needed no work. Those pieces are now implemented, per the
+["Implemented architecture"](#implemented-architecture) table above.
 
 ### Components
 
