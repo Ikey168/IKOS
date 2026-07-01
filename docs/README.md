@@ -1,10 +1,12 @@
 # IKOS Documentation
 
-IKOS is an x86/x86_64 microkernel whose defining feature is **orthogonal
-persistence**: the whole running system is the durable state, and the checkpoint
-engine that provides it also powers **time-travel debugging** (record a session
-and step the machine backward). Those two are the parts with end-to-end tests and
-CI; the rest of the tree documents the broader OS scaffolding.
+IKOS is a **time-traveling debugger built as an operating system**: an x86/x86_64
+microkernel that records every nondeterministic input as it runs, so any past
+moment of the whole machine can be reconstructed and stepped backward (from gdb
+or from an MCP client). The substrate that makes it possible is **orthogonal
+persistence**: the running system is the durable state, checkpointed whole. Those
+two stacks are the parts with end-to-end tests and CI; the rest of the tree
+documents the broader OS scaffolding.
 
 Start with the root [`README.md`](../README.md) for the project overview and the
 "try it" demos. This folder holds the design and reference docs.

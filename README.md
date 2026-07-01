@@ -1,23 +1,132 @@
-# IKOS Operating System
+# IKOS
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Orthogonal Persistence](https://github.com/Ikey168/IKOS/actions/workflows/persistence.yml/badge.svg)](https://github.com/Ikey168/IKOS/actions/workflows/persistence.yml)
 [![Architecture](https://img.shields.io/badge/Architecture-x86__64-blue.svg)]()
 [![Kernel](https://img.shields.io/badge/Kernel-Microkernel-orange.svg)]()
 
-> **IKOS is a microkernel with orthogonal persistence: no save, no load, no shutdown.**
-> The entire running system is the durable state. Pull the power cord, plug it back
-> in, and your work is exactly where you left it, mid-instruction.
+> **IKOS is a time-traveling debugger built as an operating system.** Record a
+> session, then scrub the whole machine backward: step back from the crash,
+> run backward to a breakpoint, or ask where a value was last written and land
+> there.
 
-This is a real, proven idea (KeyKOS, EROS, Phantom OS, and IBM i's single-level store
-in production) that no other hobby-tier microkernel implements. It is IKOS's reason to
-exist, and it rides directly on the kernel's copy-on-write virtual memory.
+Heisenbugs die on the operating table: rerun the program and the schedule
+shifts, the timer reads change, the entropy differs, and the crash is gone.
+IKOS attacks that at the root. The OS records every nondeterministic input as
+it runs, so any past moment of the whole machine can be reconstructed exactly,
+as many times as you need. The bug cannot escape into a different interleaving,
+because the interleaving is part of the recording.
 
-## The headline: pull the plug, keep your work
+Two front ends drive it:
 
-A program does **nothing special** to be durable. The counter below has no `save()`,
-no `load()`, no serialization. The OS checkpoints the whole system periodically and
-resumes from the last checkpoint on boot:
+- **gdb**: `reverse-stepi` / `reverse-continue` against the running OS over the
+  serial port, using gdb's native reverse-execution protocol.
+- **MCP**: `list_checkpoints`, `rewind_to`, `reverse_step`, and
+  `watch_last_write` exposed as JSON-RPC tools, so an AI agent can drive the
+  machine backward. Agents are bad at exactly what this is good at: reproducing
+  a flaky bug and keeping the world stable between attempts. IKOS turns an
+  agent into a time-traveling debugger.
+
+## See it
+
+The live end-to-end run: boot the stack, record a session, then drive
+rewind/reverse over the MCP loop and verify every reconstructed moment,
+byte-exact:
+
+```
+=== In-QEMU-style time-travel end-to-end (#200) ===
+[record] retained window: epochs 3..6 (last 4 of 6)
+[agent] driving rewind/reverse over the MCP JSON-RPC loop
+        rewound to epoch=5 offset=0  ->  stepped back to epoch=4  ->  epoch=3
+[verify] epoch 3..6: state=match divergence=clean
+  divergence detector reports NO leak over the live run
+PASSED: booted, recorded, reverse-stepped, no leak
+```
+
+(Recording: `asciinema play docs/media/timetravel-live.cast`.)
+
+All the demos run headless against the real modules and gate CI:
+
+```bash
+# Boot, record, reverse-step: keyframe store + journal + divergence detector +
+# MCP front end, with every reconstructed moment verified leak-free:
+./scripts/test/timetravel_live_demo.sh
+
+# An AI agent debugs a planted heisenbug by rewinding the machine:
+./scripts/test/mcp_heisenbug_demo.sh
+
+# Record a session, scrub it backward, and match every past moment:
+./scripts/test/scrub_demo.sh
+
+# A recorded session replays byte-identically:
+./scripts/test/timetravel_demo.sh
+```
+
+## Using the debugger
+
+From gdb, over the serial port (the stub advertises `ReverseStep+` /
+`ReverseContinue+`, so gdb's stock reverse commands just work):
+
+```
+(gdb) target remote <serial>
+(gdb) reverse-stepi      # one step back: restore the prior keyframe, replay to
+                         # just before the current point
+(gdb) reverse-continue   # run backward to the previous stop / oldest keyframe
+```
+
+From an MCP client, as newline-delimited JSON-RPC (one response line per
+request):
+
+```
+{"jsonrpc":"2.0","id":1,"method":"tools/list"}
+{"id":2,"method":"tools/call","params":{"name":"rewind_to","arguments":{"epoch":35,"offset":2}}}
+{"id":3,"method":"tools/call","params":{"name":"reverse_step","arguments":{}}}
+{"id":4,"method":"tools/call","params":{"name":"watch_last_write","arguments":{}}}
+```
+
+How-tos: [gdb reverse debugging](docs/testing/reverse-debugging.md) and
+[driving time-travel from MCP](docs/testing/mcp-server.md).
+
+## Why the debugger is an operating system
+
+Record/replay debuggers exist: rr records single Linux processes from the
+outside, and emulator-level record/replay (QEMU, Simics) records a virtual
+machine from underneath. IKOS moves the recorder inside: time travel is an OS
+service. The kernel owns its keyframes, its input journal, its replay engine,
+and a divergence detector that checksums system state every epoch on both runs
+to prove each reconstruction is byte-exact. Nothing is instrumented and no
+emulator sits in the loop; the unit of replay is the whole machine, kernel and
+schedule included.
+
+It works like film: a **keyframe** (a whole-system checkpoint) every interval,
+and between keyframes a CRC-protected **journal** of every nondeterministic
+input, each entry stamped with a logical clock:
+
+- preemption points: the exact logical moment of every context switch
+- timer and cycle reads (RDTSC virtualized on replay)
+- entropy draws
+
+Restoring the nearest keyframe and re-driving execution with the journaled
+inputs reconstructs any `(epoch, offset)` in the recorded window. Reverse-step
+is "restore the prior keyframe, replay to just before here"; a reverse
+watchpoint scans backward for the last write. The retention ring keeps the last
+N keyframes on disk (the rewind horizon), and its index survives a reboot.
+
+Full design and the module map:
+[`docs/architecture/time-travel.md`](docs/architecture/time-travel.md).
+
+## The substrate: orthogonal persistence
+
+The recorder falls out of a stranger property: IKOS is a persistent OS. There
+is no save, no load, and no shutdown; the running system is the durable state.
+Pull the power cord, plug it back in, and your work is where you left it. The
+periodic whole-system checkpoints that make that true are exactly the keyframes
+time travel needs, which is why the debugger could be built as an OS at all.
+(The lineage is real: KeyKOS, EROS, Phantom OS, IBM i's single-level store. No
+other hobby-tier microkernel implements it.)
+
+A program does **nothing special** to be durable. The counter below has no
+`save()`, no `load()`, no serialization:
 
 ```c
 /* user/persistent_counter.c - the entire persistence "logic" */
@@ -25,8 +134,9 @@ uint64_t counter = 0;
 for (;;) { counter++; print_u64(counter); yield(); }
 ```
 
-The end-to-end demo (`scripts/test/persistence_demo.sh`) proves it against the real
-checkpoint engine and on-disk store, modeling a power cut as a process restart:
+The end-to-end demo (`scripts/test/persistence_demo.sh`) proves it against the
+real checkpoint engine and on-disk store, modeling a power cut as a process
+restart:
 
 ```
 [cycle 1] boot fresh, count to 5
@@ -42,19 +152,14 @@ checkpoint engine and on-disk store, modeling a power cut as a process restart:
 PASSED: the counter remembered itself across every power cycle
 ```
 
-### How it works
-
-A checkpoint marks every writable page read-only and copy-on-write (cheap; it copies
-nothing). The first write to a marked page faults, and the kernel preserves the page's
-pre-checkpoint contents before letting the write proceed. A background pass streams
-those pages into the **inactive** one of two on-disk slots. A single superblock-sector
-write flips the active slot and is the only commit point, so a crash before the flip
-always leaves the previous checkpoint intact (CRC32 guards every slot). On boot, if a
-valid checkpoint exists, the kernel reloads it instead of cold-starting.
-
-Full design: [`docs/architecture/orthogonal-persistence.md`](docs/architecture/orthogonal-persistence.md).
-
-### Try it
+How: a checkpoint marks every writable page read-only and copy-on-write (cheap;
+it copies nothing). The first write to a marked page faults, and the kernel
+preserves the pre-checkpoint contents before letting the write proceed. A
+background pass streams those pages into the **inactive** one of two on-disk
+slots; a single superblock-sector write flips the active slot and is the only
+commit point, so a crash mid-checkpoint always leaves the previous one intact
+(CRC32 guards every slot). On boot, a valid checkpoint is reloaded instead of
+cold-starting.
 
 ```bash
 # Headless proof against the real checkpoint engine (no emulator needed):
@@ -66,89 +171,50 @@ Full design: [`docs/architecture/orthogonal-persistence.md`](docs/architecture/o
 ./scripts/test/qemu_persistence_demo.sh
 ```
 
-The checkpoint store can live on the volatile RAM disk (survives a warm reboot) or, for
-true power-cut durability, on a real IDE disk via `checkpoint_ide_bind` - which the kernel
-now selects at boot, falling back to the RAM disk when no IDE drive is present. Recording of
-the yank-power/boot/resume cycle: `docs/media/qemu-resume.cast`
-(`asciinema play docs/media/qemu-resume.cast`).
+The checkpoint store lives on a real IDE disk when one is present (true
+power-cut durability; the kernel binds it at boot and falls back to the
+volatile RAM disk otherwise). Recording of the yank-power/boot/resume cycle:
+`asciinema play docs/media/qemu-resume.cast`. Full design:
+[`docs/architecture/orthogonal-persistence.md`](docs/architecture/orthogonal-persistence.md).
 
 ## What actually works vs. roadmap
 
-Being honest about maturity:
+Being honest about maturity. The debugging stack:
 
-| Area | Status |
-|------|--------|
-| Orthogonal persistence: snapshot store (double-buffered slots + CRC) | Implemented, unit-tested |
-| Checkpoint engine: stop-the-world COW marking, page-fault capture, writeback | Implemented, unit-tested |
-| Restore + boot decision (restore vs cold boot) | Implemented, unit-tested |
-| Periodic checkpoint trigger (scheduler tick) | Implemented, unit-tested |
-| External-state policy (sockets/DMA/devices severed on restore) | Implemented, unit-tested |
-| Context persistence + process-table/scheduler reconstruction on restore | Implemented, unit-tested |
-| End-to-end "yank power" proof over a file-backed disk | Passing in CI |
-| Boot store wired to a block device (RAM disk, volatile) | Implemented, unit-tested |
-| IDE-backed durable store (survives a real power cut) | Wired into the boot path (prefers the IDE disk, falls back to the RAM disk); durability + counter-resume across a power cut gated headlessly in CI, with a scripted QEMU booted-system demo |
+| Layer | Status |
+|-------|--------|
+| Deterministic replay core: input journal, deterministic preemption, virtualized time, deterministic entropy | Implemented, unit-tested |
+| Live capture: every checkpoint commit journals its epoch's inputs and divergence checksums | Implemented, unit-tested |
+| Keyframe retention store: last N checkpoints across on-disk regions, index survives reboot | Implemented, unit-tested |
+| Replay driver: land the booted system at an arbitrary (epoch, offset) | Implemented, unit-tested; the live journal retains the latest epoch (a deeper journal ring is future work) |
+| Divergence detector fed by real component checksums (process table, scheduler) | Implemented, unit-tested |
+| Rewind-to, reverse-step/continue, reverse breakpoints and watchpoints | Implemented, unit-tested |
+| gdb front end: RSP stub (bs/bc) + serial transport loop | Implemented, unit-tested |
+| MCP front end: JSON-RPC tools + server loop | Implemented, unit-tested |
+| End-to-end: byte-identical replay, scrub-backwards, agent heisenbug hunt, live boot/record/reverse-step | Passing headlessly in CI; the in-QEMU layer runs when an emulator + image are present |
+
+And the persistence substrate it rides on:
+
+| Layer | Status |
+|-------|--------|
+| Snapshot store: double-buffered slots + CRC, single superblock-flip commit | Implemented, unit-tested |
+| Checkpoint engine: stop-the-world COW marking, page-fault capture, background writeback | Implemented, unit-tested |
+| Restore + boot decision; context and process-table reconstruction | Implemented, unit-tested |
+| Periodic trigger + external-state policy (sockets/DMA/devices severed on restore) | Implemented, unit-tested |
+| IDE-backed durable store wired into the boot path (falls back to the RAM disk) | Implemented; durability + counter resume across a power cut gated headlessly in CI, with a scripted QEMU booted-system demo |
 | Process register/scheduler-state resume actually executing | Table/context restore done; scheduler bridge + QEMU boot pending |
-| Live boot/record/reverse-step end-to-end (headless CI gate + recording) | Passing in CI; QEMU boot layer runs when an image is present |
-| Persisting kernel-internal and driver state | v2 (v1 cold-inits the kernel/drivers and restores user spaces on top) |
+| Kernel-internal and driver state | v2 design (v1 cold-inits the kernel/drivers and restores user spaces on top) |
 
-The broader subsystems below describe the project's overall scope; several are partial
-or aspirational. The persistence stack is the part with end-to-end tests and CI today.
-
-## Time-travel: scrub the machine backwards
-
-Because the checkpoint engine already snapshots the whole system periodically, IKOS goes a
-step further than "resume the last moment": it records the nondeterministic inputs between
-keyframes (preemptions, timer and cycle reads, entropy) into a CRC-protected journal, so
-any past moment can be reconstructed by restoring the nearest keyframe and replaying
-forward. That makes the running system rewindable: `rewind-to <epoch>` lands at a past
-moment, and reverse-step / reverse-continue walk it backward, driven from a normal gdb
-session (`reverse-stepi`).
-
-```bash
-# Boot, record, reverse-step: the whole live stack (keyframe store, journal,
-# divergence detector, MCP front end) drives an agent through rewind/reverse and
-# confirms every reconstructed moment matches with no divergence leak.
-./scripts/test/timetravel_live_demo.sh
-
-# Headless proof: record a session, then scrub it backward and show every
-# reconstructed past moment matches the recorded timeline.
-./scripts/test/scrub_demo.sh
-
-# Headless proof that a recorded session replays byte-identically:
-./scripts/test/timetravel_demo.sh
-```
-
-Recording of the live boot -> record -> reverse-step run (asciicast, playable with
-`asciinema play docs/media/timetravel-live.cast`):
-
-```
-=== In-QEMU-style time-travel end-to-end (#200) ===
-[record] retained window: epochs 3..6 (last 4 of 6)
-[agent] driving rewind/reverse over the MCP JSON-RPC loop
-        rewound to epoch=5 offset=0  ->  stepped back to epoch=4  ->  epoch=3
-[verify] epoch 3..6: state=match divergence=clean
-  divergence detector reports NO leak over the live run
-PASSED: booted, recorded, reverse-stepped, no leak
-```
-
-The whole stack is implemented and unit-tested, with headless end-to-end demos
-that gate it in CI: the deterministic replay core (input journal, deterministic
-preemption, virtualized time and entropy) and a divergence detector that proves a
-replay is byte-exact; live per-epoch journal capture and an N-deep keyframe
-retention store on disk; the replay driver that lands the booted system at any
-`(epoch, offset)`; the time-travel verbs (rewind-to, reverse execution, reverse
-breakpoints and watchpoints); and two front ends, a gdb reverse-execution bridge
-over the serial port and an MCP JSON-RPC server an AI agent can call.
-
-Full design and the module map: [`docs/architecture/time-travel.md`](docs/architecture/time-travel.md);
-driving it from gdb: [`docs/testing/reverse-debugging.md`](docs/testing/reverse-debugging.md);
-from an MCP client: [`docs/testing/mcp-server.md`](docs/testing/mcp-server.md).
+The broader subsystems below describe the project's overall scope; several are
+partial or aspirational. The debugging and persistence stacks are the parts
+with end-to-end tests and CI today.
 
 ## About
 
-**IKOS** is a **microkernel-based operating system** for **x86/x86_64 consumer devices**
-(desktops, laptops, embedded systems), organized around the orthogonal-persistence thesis
-above. Alongside it the project includes:
+The machine under the microscope is **IKOS** itself: a **microkernel-based operating
+system** for **x86/x86_64 consumer devices** (desktops, laptops, embedded systems),
+organized around the persistence-and-replay thesis above. Alongside it the project
+includes:
 
 - **Orthogonal Persistence** with periodic system checkpoints and resume-on-boot
 - **Custom Multi-Stage Bootloader** with a real mode to long mode transition
@@ -369,9 +435,9 @@ IKOS/
 
 ## Roadmap
 
-The persistence stack and the time-travel debugging that builds on it are the mature
-parts of IKOS, with unit tests and CI demos (see the sections above). The items below
-are the broader OS scaffolding, in rough priority order.
+The time-travel debugging stack and the persistence substrate it rides on are the
+mature parts of IKOS, with unit tests and CI demos (see the sections above). The items
+below are the broader OS scaffolding, in rough priority order.
 
 Recently landed: the IDE-backed durable store wired into the boot path, the in-QEMU
 persistence-resume demo, and the full live time-travel stack (see the maturity table
