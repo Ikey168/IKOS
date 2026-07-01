@@ -27,6 +27,7 @@
 #include "../include/checkpoint.h"
 #include "../include/ramdisk.h"
 #include "../include/time_record.h"
+#include "../include/sched_record.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -37,6 +38,9 @@ void show_help(void);
 /* Registers the auth /dev/urandom source with the entropy gate (#192);
  * forward-declared to avoid pulling auth_system.h (and its libc deps) in. */
 extern void auth_entropy_gate_init(void);
+/* Arms deterministic-preemption recording in the live scheduler (#193);
+ * forward-declared to avoid pulling scheduler.h in here. */
+extern void scheduler_preempt_set_mode(sched_rec_mode_t mode);
 void show_statistics(void);
 void show_timer_info(void);
 void show_device_info(void);
@@ -243,6 +247,12 @@ void kernel_init(void) {
                                     CHECKPOINT_STORE_SLOT_SECTORS,
                                     CHECKPOINT_DEFAULT_INTERVAL_TICKS) == CHECKPOINT_OK) {
         kernel_print("Orthogonal persistence armed (checkpoint store ready)\n");
+        /* With the checkpoint engine armed the session is being continuously
+         * checkpointed, so record the scheduler's context-switch decisions for
+         * every epoch (#193). The seam (#162) is OFF by default; turning it to
+         * RECORD lets a later rewind reproduce the exact schedule between
+         * keyframes. REPLAY is armed separately by the replay path. */
+        scheduler_preempt_set_mode(SCHED_REC_RECORD);
     } else {
         kernel_print("Orthogonal persistence disabled (no checkpoint store)\n");
     }
