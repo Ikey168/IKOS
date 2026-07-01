@@ -33,16 +33,58 @@ byte-identical state at every epoch boundary.
 
 ### Sources of nondeterminism
 
-Every source that can make two runs diverge must be either recorded and replayed,
-virtualized, or gated to a deterministic point.
+This section is the spike deliverable for the catalog. Every source that can make two runs
+diverge must be either recorded and replayed, virtualized, or gated to a deterministic
+point. Each entry below is grounded in the current code.
 
-| Source | How it leaks in | Strategy |
-|--------|-----------------|----------|
-| Interrupt and preemption timing | The scheduler preempts at hardware-timer edges that vary run to run | Record the logical point of each context switch; replay switches at the same points |
-| Scheduler tick | Drives periodic checkpoints and time slicing | Fold into the recorded preemption sequence |
-| Time and cycle reads (RDTSC, timers) | User or kernel code branches on wall-clock or cycle values | Record the value on the live run; return the recorded value on replay |
-| Device input (keyboard, IDE completion IRQs, network) | External events arrive at arbitrary times | Record each event with its epoch and logical clock in the input journal |
-| RNG and entropy | Seeds differ per boot | Capture seeds into the checkpoint so sequences replay identically |
+#### Spike findings (current code)
+
+A read of the kernel established the facts that shape the plan:
+
+- Preemption is driven by the PIT on IRQ0. `kernel/interrupts.c` programs the PIT
+  (`setup_timer_interrupt`, ports 0x43 and 0x40) and routes IRQ0 to INT 32
+  (`timer_interrupt_entry`). `scheduler_tick` in `kernel/scheduler.c` is the handler and
+  does round-robin preemption when a task's `time_slice` reaches zero. Where each tick
+  lands in the instruction stream is the dominant source of divergence.
+- The checkpoint cadence is already tick-counted, not wall-clock. `checkpoint_tick`
+  (`kernel/checkpoint.c:668`) increments `g_timer_ticks` and fires every
+  `g_timer_interval` ticks. Keyframe epochs are therefore already deterministic once the
+  tick sequence itself is deterministic; checkpoint timing needs no separate work.
+- RDTSC is not yet a live source. `get_rdtsc` in `kernel/numa_allocator.c` is a stub that
+  returns 0. It must be recorded or virtualized before any real RDTSC read is added, but
+  it does not cause divergence today.
+- The random MAC generator `eth_addr_random` in `kernel/net/ethernet.c` is actually
+  hardcoded, so it is deterministic despite its name. Networking state is also severed on
+  restore by the external-state policy, so net-path randomness does not affect persistence
+  correctness.
+- Real external entropy enters through `auth_generate_random` in `kernel/auth_core.c`,
+  which reads `/dev/urandom`. This is a genuine nondeterministic source.
+- The IDE driver polls rather than taking completion interrupts (`ide_wait_ready` and
+  `ide_wait_drq` in `kernel/ide_driver.c` spin on the status register). Disk data content
+  is deterministic; only the number of poll iterations varies, which perturbs timing.
+
+#### Catalog and strategies
+
+| Source | Where it enters | Strategy | Files touched |
+|--------|-----------------|----------|---------------|
+| Interrupt and preemption timing | PIT IRQ0 lands at a hardware-timed point in the instruction stream; `scheduler_tick` may preempt | Record the logical point of each context switch (an instruction or event count since the epoch); on replay, deliver the tick and preempt at the same point | `kernel/interrupt_stubs.asm`, `kernel/interrupts.c`, `kernel/scheduler.c` |
+| Checkpoint cadence | `checkpoint_tick` fires on a tick count | Already deterministic given a deterministic tick sequence; no change beyond the preemption work | `kernel/checkpoint.c` (no change expected) |
+| Keyboard input | Scancodes arrive via IRQ1 and are read and translated in `kernel/input_keyboard.c` | Record each scancode with its epoch and logical clock in the input journal; feed from the journal on replay | `kernel/input_keyboard.c`, `kernel/input_manager.c`, journal |
+| External entropy (/dev/urandom) | `auth_generate_random` reads `/dev/urandom` | Record the returned bytes on the live run and return them on replay, or seed a recorded PRNG captured in the checkpoint | `kernel/auth_core.c`, journal |
+| RDTSC and cycle reads (latent) | `get_rdtsc` stub today; any future real read branches on cycles | Record on the live run and return recorded values on replay; gate before a real RDTSC is introduced | `kernel/numa_allocator.c`, journal |
+| IDE completion timing | Poll-loop iteration counts vary in `ide_wait_ready` and `ide_wait_drq` | Content is deterministic; keep polling from perturbing the logical clock, or drain completions at a fixed logical point | `kernel/ide_driver.c` |
+| MAC and TLS randomness (not active) | `eth_addr_random` is hardcoded; net state is severed on restore | No action for persistence; if net replay is wanted later, record like other entropy | `kernel/net/*` (future) |
+
+The input journal referenced above is the deliverable of the next issue and reuses the
+double-buffered slot and CRC conventions in `kernel/checkpoint_disk.c`.
+
+#### Decision: not started pending review
+
+Per the issue, no implementation begins until this catalog is reviewed. The catalog fixes
+the scope of the deterministic replay core: the primary work is deterministic preemption,
+the input journal for keyboard input and entropy, and a gate for RDTSC before it goes
+live. RDTSC (stub today), the hardcoded MAC, and severed network randomness need no work
+now.
 
 ### Components
 
