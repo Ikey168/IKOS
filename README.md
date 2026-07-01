@@ -81,7 +81,7 @@ Being honest about maturity:
 | Context persistence + process-table/scheduler reconstruction on restore | Implemented, unit-tested |
 | End-to-end "yank power" proof over a file-backed disk | Passing in CI |
 | Boot store wired to a block device (RAM disk, volatile) | Implemented, unit-tested |
-| IDE-backed durable store (survives a real power cut) | Adapter implemented + unit-tested; in-kernel wiring + QEMU boot pending |
+| IDE-backed durable store (survives a real power cut) | Wired into the boot path (prefers the IDE disk, falls back to the RAM disk); durability across a power cut unit-tested |
 | Process register/scheduler-state resume actually executing | Table/context restore done; scheduler bridge + QEMU boot pending |
 | Live boot/record/reverse-step end-to-end (headless CI gate + recording) | Passing in CI; QEMU boot layer runs when an image is present |
 | Persisting kernel-internal and driver state | v2 (v1 cold-inits the kernel/drivers and restores user spaces on top) |
@@ -380,7 +380,7 @@ Status:
 ### Systems Roadmap
 
 Short term:
-- [ ] IDE-backed durable store wired into the in-kernel boot path
+- [x] IDE-backed durable store wired into the in-kernel boot path
 - [ ] In-QEMU boot demo for the persistence resume
 - [ ] UEFI boot support
 - [ ] Performance optimizations
@@ -427,7 +427,7 @@ Contributions are welcome from developers of all skill levels.
 - **Pull Requests**: provide detailed descriptions of changes
 
 ### Areas Looking for Contributors
-- The persistence stack: IDE-backed store wiring and the in-QEMU boot demo
+- The persistence stack: the in-QEMU boot demo on real hardware images
 - Time-travel debugging: deterministic replay and the divergence detector
 - Device drivers (graphics, sound, network)
 - Documentation and tutorials

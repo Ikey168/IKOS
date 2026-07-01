@@ -35,6 +35,7 @@
 #include "../include/divergence_scan.h"
 #include "../include/gdb_serial.h"
 #include "../include/mcp_server.h"
+#include "../include/checkpoint_ide_boot.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -243,12 +244,20 @@ void kernel_init(void) {
     kernel_print("IKOS kernel initialized successfully\n");
 
     /* Orthogonal persistence (#129): wire the checkpoint store to a block
-     * device and arm automatic checkpoints + restore. The RAM disk is used as
-     * the simplest backing store; note it is volatile, so it survives a warm
-     * reboot / QEMU snapshot but not a real power cut. Moving the store to a
-     * dedicated IDE sector region (#130) gives true non-volatile durability. */
+     * device and arm automatic checkpoints + restore. Prefer the IDE-backed
+     * durable store (#130/#201): a checkpoint, journal, and keyframe ring on a
+     * real disk survive an actual power cut. When no IDE drive is present, fall
+     * back to the volatile RAM disk (survives a warm reboot / QEMU snapshot but
+     * not a real power cut). The checkpoint/journal/keyframe wiring below is
+     * device-agnostic and uses whichever backing device is selected here. */
     static snapshot_store_t persistence_store;
-    fat_block_device_t* persistence_dev = ramdisk_get_device();
+    fat_block_device_t* persistence_dev = checkpoint_ide_boot_bind();
+    if (persistence_dev) {
+        kernel_print("Checkpoint store on IDE disk (durable, survives power cut)\n");
+    } else {
+        persistence_dev = ramdisk_get_device();
+        kernel_print("Checkpoint store on RAM disk (volatile; no IDE drive found)\n");
+    }
     if (checkpoint_persistence_init(&persistence_store, persistence_dev,
                                     CHECKPOINT_STORE_BASE_SECTOR,
                                     CHECKPOINT_STORE_SLOT_SECTORS,
