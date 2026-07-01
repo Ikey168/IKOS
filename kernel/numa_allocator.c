@@ -5,6 +5,7 @@
 #include "memory_advanced.h"
 #include "buddy_allocator.h"
 #include "slab_allocator.h"
+#include "time_record.h"   /* ktime_read(): the deterministic-replay time gate (#191) */
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -711,11 +712,14 @@ static void debug_print(const char* format, ...) {
 }
 
 /**
- * Placeholder RDTSC function
+ * Cycle counter read, routed through the deterministic-replay time gate (#191).
+ * ktime_read() returns the real RDTSC on a live run, but records it on a record
+ * run and returns the recorded value on replay, so cache timestamps replay
+ * identically. Before ktime_init() runs at boot it returns 0 (as the old stub
+ * did), which is harmless for these timestamps.
  */
 static uint64_t get_rdtsc(void) {
-    /* TODO: Implement actual timestamp counter reading */
-    return 0;
+    return ktime_read();
 }
 
 /**

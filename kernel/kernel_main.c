@@ -26,6 +26,7 @@
 /* #include "../include/ext2_syscalls.h" */ /* Commenting out due to header conflicts */
 #include "../include/checkpoint.h"
 #include "../include/ramdisk.h"
+#include "../include/time_record.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -77,6 +78,11 @@ void kernel_main(void) {
  * Initialize all kernel subsystems
  */
 void kernel_init(void) {
+    /* Deterministic-replay time gate (#191): initialize ktime before anything
+     * reads the cycle counter, so time reads go through the record/replay wrapper
+     * (real RDTSC on a live run) rather than a raw read. Default mode is OFF. */
+    ktime_init();
+
     /* Initialize memory management */
     memory_init();
     
