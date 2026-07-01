@@ -1,4 +1,4 @@
-# IKOS Orthogonal Persistence v2 — Whole-Machine Persistence
+# IKOS Orthogonal Persistence v2 - Whole-Machine Persistence
 
 Tracking issue: #132. Builds on the delivered v1 ([`orthogonal-persistence.md`](orthogonal-persistence.md), epic #121) and the v1.5 follow-ups (#126–#131).
 
@@ -16,8 +16,8 @@ the latest valid checkpoint (reconstructing address spaces, process-table
 entries, and CPU context) or cold-boots. **The kernel and all drivers
 re-initialize from scratch every boot;** only user state is replayed on top.
 
-**v2 goal:** persist the **whole machine** — kernel-internal state, driver and
-device state, and in-flight IPC/DMA — so that after a power cut the system
+**v2 goal:** persist the **whole machine** - kernel-internal state, driver and
+device state, and in-flight IPC/DMA - so that after a power cut the system
 resumes not just user memory but the complete OS, ideally with no observable
 discontinuity beyond severed external connections.
 
@@ -37,7 +37,7 @@ restore.
 v1 sidesteps this: it only persists *user* pages (captured lazily via COW) and
 cold-inits the kernel, so kernel invariants are never snapshotted. v2 must
 persist kernel state, so it needs a **defined point where the kernel is
-self-consistent** — a checkpoint barrier.
+self-consistent** - a checkpoint barrier.
 
 ### 2.1 Quiescent points (the checkpoint barrier)
 
@@ -69,7 +69,7 @@ cold-init unless a structure carries irreplaceable state.
 
 | Kernel structure | Source | v2 disposition |
 |------------------|--------|----------------|
-| Process table | `kernel/process_manager.c` (`pm_table_*`) | **Persist** — v1 already reconstructs entries; extend to full table incl. parent/child, zombies, wait queues |
+| Process table | `kernel/process_manager.c` (`pm_table_*`) | **Persist** - v1 already reconstructs entries; extend to full table incl. parent/child, zombies, wait queues |
 | Scheduler queues | `kernel/scheduler.c` (`ready_queues`, `round_robin_queue`) | **Persist** run/ready state; rebuild queue links on restore from process state |
 | CPU context per process | `process_context_t` | **Persist** (done in v1.5, #126) |
 | Virtual memory regions | `vm_space_t` region lists | **Persist** (region metadata persisted; pages already persisted) |
@@ -77,7 +77,7 @@ cold-init unless a structure carries irreplaceable state.
 | IPC channels + queues | `pm_ipc_*`, `kernel/daemon_ipc.c` | **Drain or persist** in-flight messages; see §6 |
 | Kernel heap (`kalloc`) | `kernel/kalloc.c` | **Cold-init**; persisted structures are re-allocated/relinked on restore, or the heap is snapshotted wholesale (decision below) |
 | Timers / alarms | `proc->alarm_time`, scheduler ticks | **Persist** logical deadlines; re-arm hardware timer on restore |
-| Locks / spinlocks | various | **Never persist** — the barrier guarantees none are held at checkpoint time |
+| Locks / spinlocks | various | **Never persist** - the barrier guarantees none are held at checkpoint time |
 
 ### 3.1 Two strategies for kernel memory
 
@@ -113,9 +113,9 @@ struct persist_ops {
 };
 ```
 
-- **`quiesce`** — called at the checkpoint barrier: finish or abort in-flight
+- **`quiesce`** - called at the checkpoint barrier: finish or abort in-flight
   transfers, stop DMA, leave the device at a known boundary.
-- **`reattach`** — called on restore after cold-init: re-probe and re-program
+- **`reattach`** - called on restore after cold-init: re-probe and re-program
   the hardware, then reconcile with the persisted logical state.
 
 Per-driver responsibilities (most visible in a demo first):
@@ -124,7 +124,7 @@ Per-driver responsibilities (most visible in a demo first):
   store region. The store itself is already crash-consistent (v1). The
   `checkpoint_ide` adapter (#130) is the durable backing.
 - **Framebuffer (`kernel/framebuffer.c`):** re-init the video mode on restore
-  and **repaint from the persisted pixel buffer** — the most visceral "it came
+  and **repaint from the persisted pixel buffer** - the most visceral "it came
   back" demo.
 - **Input (keyboard/mouse):** cold-init; no meaningful persisted state.
 - **Network/audio:** non-persistable (see §6).
@@ -148,7 +148,7 @@ options, chosen per resource:
   the barrier (§2.1) lets message queues settle; persist the settled queues as
   ordinary kernel state (§3). `pm_ipc_*` queues become serializable.
 - **Mark severed** (preferred for DMA and external connections): extend the
-  v1.5 external-state policy (`checkpoint_extstate`, #118/#128) *inward* — DMA
+  v1.5 external-state policy (`checkpoint_extstate`, #118/#128) *inward* - DMA
   buffers, sockets, and device handles are tagged non-persistable and surface a
   defined error on restore so the owner re-establishes them. The fd-flags
   severing layer already exists; v2 adds DMA/IPC-endpoint kinds and the
@@ -159,7 +159,7 @@ options, chosen per resource:
 v2 reuses, not replaces, the v1 machinery:
 
 - The **on-disk store** (`snapshot_store`, double-buffered slots + CRC) gains a
-  new record type for kernel-state blobs alongside page and context records —
+  new record type for kernel-state blobs alongside page and context records -
   exactly how #126 added context records without changing the format.
 - The **writeback / restore pipeline** gains a kernel-state pass that runs at
   the barrier (write) and before user restore (read).
@@ -169,11 +169,11 @@ v2 reuses, not replaces, the v1 machinery:
 ## 8. Risks / open questions
 
 - **Barrier latency** under long kernel operations (§2.1).
-- **Kernel-upgrade compatibility** of checkpoints — strategy (B) mitigates;
+- **Kernel-upgrade compatibility** of checkpoints - strategy (B) mitigates;
   add a kernel-build/version stamp to the superblock and reject mismatches.
-- **Partial driver re-attach failure** — define whether a failed `reattach`
+- **Partial driver re-attach failure** - define whether a failed `reattach`
   aborts the restore (cold-boot fallback) or proceeds with that device severed.
-- **Testing without hardware** — most of v2 needs a booting kernel + QEMU, which
+- **Testing without hardware** - most of v2 needs a booting kernel + QEMU, which
   the current CI environment lacks; the decision cores (barrier state machine,
   serialization, reconcile logic) should be factored as pure, host-testable
   units like the v1 work, with QEMU reserved for integration.
@@ -182,18 +182,18 @@ v2 reuses, not replaces, the v1 machinery:
 
 To be split/merged after review of §2–§3:
 
-1. **Checkpoint barrier / quiescent-point state machine** (§2.1) — pure state
+1. **Checkpoint barrier / quiescent-point state machine** (§2.1) - pure state
    machine + scheduler integration; host-testable.
-2. **Kernel-state record type in the snapshot store** (§7) — new record kind +
+2. **Kernel-state record type in the snapshot store** (§7) - new record kind +
    superblock kernel-version stamp.
 3. **Persist + restore the process table and scheduler queues** (§3).
 4. **Persist + restore the VFS open-file tables** (§5).
 5. **IPC drain + persist in-flight messages** (§6).
 6. **Driver re-attach framework** (`persist_ops` on `device_t`, §4).
 7. **Disk driver re-attach** (§4).
-8. **Framebuffer re-attach + repaint-from-persisted-buffer** (§4) — the demo.
+8. **Framebuffer re-attach + repaint-from-persisted-buffer** (§4) - the demo.
 9. **Extend external-state severing to DMA/IPC endpoints** (§6).
-10. **v2 boot ordering: kernel-state restore → driver re-attach → user restore**
+10. **v2 boot ordering: kernel-state restore -> driver re-attach -> user restore**
     (§7).
 
 ## 10. Definition of done (design phase)
