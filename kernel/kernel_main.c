@@ -33,6 +33,7 @@
 #include "../include/keyframe_store.h"
 #include "../include/divergence.h"
 #include "../include/divergence_scan.h"
+#include "../include/gdb_serial.h"
 #include <stdint.h>
 
 /* Function declarations */
@@ -298,6 +299,13 @@ void kernel_init(void) {
          * and component. Kept armed; the journal hook records, replay compares. */
         kdiverge_init();
         kdiverge_register_kernel_sources();
+
+        /* Register the gdb reverse ops and configure the serial line (#198), so
+         * a gdb session can drive reverse-stepi / reverse-continue over the
+         * serial port. This binds the ops and sets up the UART; the blocking
+         * serial serve loop (gdbstub_serial_run) is entered on demand from the
+         * debug path, not during boot. */
+        gdbstub_serial_init(0 /* COM1 */);
     } else {
         kernel_print("Orthogonal persistence disabled (no checkpoint store)\n");
     }

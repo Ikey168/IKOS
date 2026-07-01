@@ -29,11 +29,33 @@ This is a separate connection from QEMU's own gdb server (`qemu -s`, used by
 know about IKOS's replay history. IKOS's stub runs inside the kernel and speaks
 gdb RSP over the serial port, so gdb talks to IKOS directly for reverse control.
 
+## The serial transport
+
+The stub itself does no I/O: `kernel/gdbstub.c` only frames, checksums, and
+dispatches packets. `kernel/gdb_serial.c` is the transport loop that connects it
+to the serial port. For each request it:
+
+1. reads a framed packet `$<payload>#<cc>` from the line, skipping stray `+`/`-`
+   acks between packets,
+2. acknowledges the request with `+`,
+3. hands the frame to `gdbstub_serve()` (which unframes, dispatches, and reframes
+   the reply), and
+4. writes the framed reply, then waits for gdb's `+` ack, retransmitting the
+   reply if gdb answers `-`.
+
+A `Ctrl-C` (`0x03`) between packets is answered with a stop reply (`S05`). The
+byte I/O is injected, so the loop is host-tested with a scripted byte stream; the
+kernel adapter `kernel/gdb_serial_sync.c` wires it to the 16550 UART.
+
+At boot the kernel calls `gdbstub_serial_init()`, which configures the serial
+line and registers the reverse ops with `gdbstub_bind_reverse()`; the blocking
+serve loop `gdbstub_serial_run()` is entered on demand from the debug path.
+
 ## Using it
 
 1. Boot IKOS under QEMU with a serial line gdb can attach to, and with the
-   in-kernel stub enabled (it registers the reverse ops via
-   `gdbstub_bind_reverse()` and serves packets from the serial loop).
+   in-kernel stub enabled (`gdbstub_serial_init()` registers the reverse ops and
+   configures the UART at boot; `gdbstub_serial_run()` serves the packets).
 
 2. From gdb, connect to the serial line and confirm the reverse packets were
    negotiated:
@@ -65,6 +87,17 @@ gcc -I../include -Wall -o /tmp/t_gdb test_gdbstub.c ../kernel/gdbstub.c && /tmp/
 ```
 
 The test checks the checksum/framing, that `qSupported` advertises the reverse
-packets, and that `bs` / `bc` map to reverse-step / reverse-continue. Driving a
-live `reverse-stepi` from gdb against a running IKOS under `make debug` exercises
-the same handlers over the serial transport.
+packets, and that `bs` / `bc` map to reverse-step / reverse-continue. The serial
+transport loop is tested separately over a scripted byte stream:
+
+```
+cd tests
+gcc -I../include -Wall -o /tmp/t_gsl test_gdb_serial.c \
+    ../kernel/gdb_serial.c ../kernel/gdbstub.c ../kernel/gdbstub_sync.c && /tmp/t_gsl
+```
+
+It checks that a packet is read past stray acks, acked with `+`, and its reply
+framed and written; that `qSupported`/`bs`/`bc` flow end to end; that a `-`
+reply-ack retransmits; and that a `Ctrl-C` yields a stop reply. Driving a live
+`reverse-stepi` from gdb against a running IKOS exercises the same handlers over
+the real serial transport.
