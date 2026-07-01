@@ -37,6 +37,8 @@ on:
       - 'tests/test_snapshot_store.c'
       - 'tests/test_persistence_e2e.c'
       - 'scripts/test/persistence_demo.sh'
+      - 'tests/timetravel_e2e.c'
+      - 'scripts/test/timetravel_demo.sh'
       - '.github/workflows/persistence.yml'
   pull_request:
   workflow_dispatch:
@@ -98,5 +100,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: End-to-end "yank power, it remembers" demo
         run: bash scripts/test/persistence_demo.sh
+      - name: Time-travel "record, replay, byte-identical" demo
+        run: bash scripts/test/timetravel_demo.sh
       - name: In-QEMU boot demo (skips gracefully if QEMU is unavailable)
         run: bash scripts/test/qemu_persistence_demo.sh
