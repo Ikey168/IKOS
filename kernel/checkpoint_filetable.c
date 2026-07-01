@@ -5,6 +5,7 @@
  */
 
 #include "checkpoint_filetable.h"
+#include "checkpoint_extstate.h"   /* extstate_survives_checkpoint */
 
 extern void* memcpy(void* dest, const void* src, unsigned long n);
 
@@ -87,6 +88,16 @@ static bool path_is_terminated(const char* path) {
         }
     }
     return false;
+}
+
+bool checkpoint_file_record_reopenable(const checkpoint_file_record_t* r) {
+    if (!r) {
+        return false;
+    }
+    /* Reopen only a persistable kind (a regular file) that actually carries a
+     * path; anything else is severed so the app re-establishes it. */
+    return extstate_survives_checkpoint((extstate_kind_t)r->kind) &&
+           r->path[0] != '\0';
 }
 
 bool checkpoint_filetable_validate(const checkpoint_filetable_t* t) {

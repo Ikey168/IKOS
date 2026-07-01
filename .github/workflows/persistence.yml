@@ -47,7 +47,7 @@ jobs:
           gcc -I../include -Wall -o /tmp/t_bar    test_checkpoint_barrier.c   ../kernel/checkpoint_barrier.c && /tmp/t_bar
           gcc -I../include -Wall -o /tmp/t_kern   test_checkpoint_kernel.c    $K && /tmp/t_kern
           gcc -I../include -Wall -o /tmp/t_proc   test_checkpoint_proctable.c ../kernel/checkpoint_proctable.c && /tmp/t_proc
-          gcc -I../include -Wall -o /tmp/t_file   test_checkpoint_filetable.c ../kernel/checkpoint_filetable.c && /tmp/t_file
+          gcc -I../include -Wall -o /tmp/t_file   test_checkpoint_filetable.c ../kernel/checkpoint_filetable.c ../kernel/checkpoint_extstate.c && /tmp/t_file
           gcc -I../include -Wall -o /tmp/t_ipc    test_checkpoint_ipc.c       ../kernel/checkpoint_ipc.c && /tmp/t_ipc
           gcc -I../include -Wall -o /tmp/t_drv    test_checkpoint_driver.c    ../kernel/checkpoint_driver.c && /tmp/t_drv
           gcc -I../include -Wall -o /tmp/t_disk   test_checkpoint_disk.c      ../kernel/checkpoint_disk.c && /tmp/t_disk

@@ -66,12 +66,19 @@ typedef enum {
 #define MAX_PROCESS_NAME        32              /* Maximum process name length */
 #define MAX_COMMAND_LINE        256             /* Maximum command line length */
 
+/* Backing-path length stored per descriptor. Sized to match the persistence
+ * record (CHECKPOINT_FILE_PATH_MAX) so a file's path round-trips through a
+ * checkpoint and can be reopened on restore. */
+#define FD_PATH_MAX             128
+
 /* File descriptor structure */
 typedef struct {
     int fd;                     /* File descriptor number */
     uint64_t offset;            /* Current file offset */
     uint32_t flags;             /* File flags (read/write/etc) */
     void* file_data;            /* Pointer to file data structure */
+    char path[FD_PATH_MAX];     /* Backing file path (empty if none); persisted
+                                 * so orthogonal-persistence restore can reopen */
 } file_descriptor_t;
 
 /* Process context structure - saved during context switches */
