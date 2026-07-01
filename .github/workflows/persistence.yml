@@ -52,6 +52,10 @@ on:
       - 'kernel/revbreak_sync.c'
       - 'include/revbreak.h'
       - 'tests/test_revbreak.c'
+      - 'kernel/gdbstub.c'
+      - 'kernel/gdbstub_sync.c'
+      - 'include/gdbstub.h'
+      - 'tests/test_gdbstub.c'
       - 'tests/timetravel_e2e.c'
       - 'scripts/test/timetravel_demo.sh'
       - '.github/workflows/persistence.yml'
@@ -70,7 +74,7 @@ jobs:
       - name: Freestanding compile check (kernel modules)
         run: |
           set -e
-          for f in kernel/checkpoint.c kernel/snapshot_store.c kernel/checkpoint_extstate.c kernel/checkpoint_ide.c kernel/checkpoint_barrier.c kernel/checkpoint_proctable.c kernel/checkpoint_proctable_sync.c kernel/checkpoint_filetable.c kernel/checkpoint_filetable_sync.c kernel/checkpoint_ipc.c kernel/checkpoint_ipc_sync.c kernel/checkpoint_driver.c kernel/checkpoint_disk.c kernel/checkpoint_disk_sync.c kernel/checkpoint_fb.c kernel/checkpoint_fb_sync.c kernel/checkpoint_restore_seq.c kernel/checkpoint_boot_v2.c kernel/checkpoint_journal.c kernel/sched_record.c kernel/time_record.c kernel/time_record_sync.c kernel/entropy_record.c kernel/entropy_record_sync.c kernel/replay_engine.c kernel/replay_engine_sync.c kernel/divergence.c kernel/divergence_sync.c kernel/keyframe_ring.c kernel/rewind.c kernel/rewind_sync.c kernel/reverse.c kernel/reverse_sync.c kernel/revbreak.c kernel/revbreak_sync.c kernel/ramdisk.c; do
+          for f in kernel/checkpoint.c kernel/snapshot_store.c kernel/checkpoint_extstate.c kernel/checkpoint_ide.c kernel/checkpoint_barrier.c kernel/checkpoint_proctable.c kernel/checkpoint_proctable_sync.c kernel/checkpoint_filetable.c kernel/checkpoint_filetable_sync.c kernel/checkpoint_ipc.c kernel/checkpoint_ipc_sync.c kernel/checkpoint_driver.c kernel/checkpoint_disk.c kernel/checkpoint_disk_sync.c kernel/checkpoint_fb.c kernel/checkpoint_fb_sync.c kernel/checkpoint_restore_seq.c kernel/checkpoint_boot_v2.c kernel/checkpoint_journal.c kernel/sched_record.c kernel/time_record.c kernel/time_record_sync.c kernel/entropy_record.c kernel/entropy_record_sync.c kernel/replay_engine.c kernel/replay_engine_sync.c kernel/divergence.c kernel/divergence_sync.c kernel/keyframe_ring.c kernel/rewind.c kernel/rewind_sync.c kernel/reverse.c kernel/reverse_sync.c kernel/revbreak.c kernel/revbreak_sync.c kernel/gdbstub.c kernel/gdbstub_sync.c kernel/ramdisk.c; do
             echo "freestanding: $f"
             gcc -ffreestanding -fno-stack-protector -m64 -Iinclude -Wall -Wextra -fsyntax-only "$f"
           done
@@ -111,6 +115,7 @@ jobs:
           gcc -I../include -Wall -o /tmp/t_rw     test_rewind.c               ../kernel/rewind.c ../kernel/keyframe_ring.c ../kernel/replay_engine.c && /tmp/t_rw
           gcc -I../include -Wall -o /tmp/t_rev    test_reverse.c              ../kernel/reverse.c ../kernel/rewind.c ../kernel/keyframe_ring.c ../kernel/replay_engine.c && /tmp/t_rev
           gcc -I../include -Wall -o /tmp/t_rb     test_revbreak.c             ../kernel/revbreak.c ../kernel/reverse.c ../kernel/rewind.c ../kernel/keyframe_ring.c ../kernel/replay_engine.c && /tmp/t_rb
+          gcc -I../include -Wall -o /tmp/t_gdb    test_gdbstub.c              ../kernel/gdbstub.c && /tmp/t_gdb
 
   e2e-demo:
     runs-on: ubuntu-latest
