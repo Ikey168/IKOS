@@ -40,6 +40,7 @@ ships each piece:
 | Reverse execution | reverse-step / reverse-continue as restore-prior-keyframe-and-replay | `kernel/reverse.c`, `kernel/reverse_sync.c` |
 | Reverse breakpoints/watchpoints | Scan backward to the last hit or the last write to a value, bounded by the ring | `kernel/revbreak.c`, `kernel/revbreak_sync.c` |
 | GDB bridge | Maps gdb `reverse-stepi` / `reverse-continue` (RSP bs/bc) onto the reverse engine | `kernel/gdbstub.c`, `kernel/gdbstub_sync.c` |
+| GDB serial transport | Serves RSP packets over the serial port: reads a framed request past stray acks, acks it, calls gdbstub_serve, and writes the framed reply with retransmit-on-NAK | `kernel/gdb_serial.c`, `kernel/gdb_serial_sync.c` |
 | MCP interface | Exposes record / rewind / reverse execution as JSON-RPC tools an AI agent can call | `kernel/mcp.c`, `kernel/mcp_sync.c` |
 
 Each stage has a host-side unit test under `tests/` and a freestanding compile check in CI.
