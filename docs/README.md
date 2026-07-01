@@ -1,146 +1,103 @@
-# IKOS Documentation Index
+# IKOS Documentation
 
-This directory contains comprehensive documentation for the IKOS operating system project, organized by category for easy navigation.
+IKOS is an x86/x86_64 microkernel whose defining feature is **orthogonal
+persistence**: the whole running system is the durable state, and the checkpoint
+engine that provides it also powers **time-travel debugging** (record a session
+and step the machine backward). Those two are the parts with end-to-end tests and
+CI; the rest of the tree documents the broader OS scaffolding.
 
-## 📁 Directory Structure
+Start with the root [`README.md`](../README.md) for the project overview and the
+"try it" demos. This folder holds the design and reference docs.
 
-### 📋 Main Documentation
-- `COMPLETE.md` - Overall completion status
-- `COMPLETION_REPORT.md` - Detailed completion reports
-- `GUI_COMPLETION_REPORT.md` - GUI system completion report
-- `IMPLEMENTATION_SUMMARY.md` - High-level implementation summary
-- `USER_SPACE_EXECUTION_SUMMARY.md` - User space execution summary
-- `LOGGING_DEBUGGING_SERVICE.md` - Logging and debugging service overview
-- `PAGING_COMPLETE.md` - Paging system completion status
-- `ENHANCEMENT_SUMMARY.md` - System enhancements summary
-- `KERNEL_LOGGING_ENHANCEMENT.md` - Kernel logging enhancements
-- `USB_CONTROLLER_ENHANCEMENT.md` - USB controller enhancements
+## Headline features
 
-### 🏗️ Architecture Documentation (`architecture/`)
-Core system architecture and framework documentation:
-- `VMM_README.md` - Virtual Memory Manager architecture
-- `DEVICE_DRIVER_FRAMEWORK.md` - Device driver framework design
-- `USB_DRIVER_FRAMEWORK.md` - USB driver framework architecture
-- `NETWORK_STACK.md` - Network stack architecture
-- `USER_INPUT_HANDLING.md` - User input handling system
-- `TCPIP.md` - TCP/IP implementation details
+- [Orthogonal persistence (design)](architecture/orthogonal-persistence.md) how
+  checkpoint/restore works: stop-the-world COW marking, page-fault capture,
+  double-buffered on-disk store with a single superblock-flip commit.
+- [Orthogonal persistence v2 (design)](architecture/orthogonal-persistence-v2.md)
+  the consistency model and the plan for persisting kernel and driver state.
+- [Time-travel debugging (design + module map)](architecture/time-travel.md) the
+  deterministic replay core and the MCP interface, with a table mapping every
+  stage to the module that ships it.
+- [Reverse debugging with gdb (how-to)](testing/reverse-debugging.md) drive
+  `reverse-stepi` / `reverse-continue` against a running IKOS over the serial
+  port.
+- [Driving time-travel from an MCP client (how-to)](testing/mcp-server.md) list
+  checkpoints and drive rewind / reverse execution as JSON-RPC tools an agent can
+  call.
 
-### 🔧 Implementation Documentation (`implementation/`)
-Detailed implementation guides for all major components:
+## Architecture
 
-#### Core Systems
-- `AUDIO_IMPLEMENTATION.md` - Audio system implementation
-- `CLI_IMPLEMENTATION.md` - Command-line interface implementation
-- `DEBUGGING_IMPLEMENTATION.md` - Debugging system implementation
-- `INTERRUPT_IMPLEMENTATION.md` - Interrupt handling implementation
-- `IPC_IMPLEMENTATION.md` - Inter-process communication implementation
-- `KALLOC_IMPLEMENTATION.md` - Kernel memory allocator implementation
-- `PAGING_IMPLEMENTATION.md` - Paging system implementation
-- `SCHEDULER_IMPLEMENTATION.md` - Process scheduler implementation
-- `VFS_IMPLEMENTATION.md` - Virtual file system implementation
+Core system design and framework docs (`architecture/`):
 
-#### Memory Management
-- `ADVANCED_MEMORY_MANAGEMENT.md` - Advanced memory management features
-- `USER_SPACE_MEMORY_MANAGEMENT.md` - User-space memory management
-- `VMM_IMPLEMENTATION_SUMMARY.md` - VMM implementation summary
+- [Virtual Memory Manager](architecture/VMM_README.md) x86_64 paging,
+  copy-on-write, the substrate persistence rides on.
+- [Device Driver Framework](architecture/DEVICE_DRIVER_FRAMEWORK.md)
+- [USB Driver Framework](architecture/USB_DRIVER_FRAMEWORK.md)
+- [Network Stack](architecture/NETWORK_STACK.md) and
+  [TCP/IP](architecture/TCPIP.md)
+- [User Input Handling](architecture/USER_INPUT_HANDLING.md)
 
-#### Process Management
-- `PROCESS_MANAGER_IMPLEMENTATION.md` - Process manager implementation
-- `PROCESS_LIFECYCLE.md` - Process lifecycle management
-- `PROCESS_TERMINATION.md` - Process termination handling
-- `ADVANCED_SIGNAL_HANDLING.md` - Advanced signal handling system
-- `THREADING_IMPLEMENTATION.md` - Threading system implementation
+## Implementation notes
 
-#### File Systems
-- `FAT_IMPLEMENTATION.md` - FAT filesystem implementation
-- `FILESYSTEM_IMPLEMENTATION_SUMMARY.md` - File system overview
-- `FILE_EXPLORER_IMPLEMENTATION.md` - File explorer implementation
+Per-subsystem reference docs live in `implementation/`. They name the concrete
+source files and data structures for a subsystem and describe its APIs. Grouped
+by area:
 
-#### Graphics & UI
-- `FRAMEBUFFER_IMPLEMENTATION.md` - Framebuffer driver implementation
-- `GUI_IMPLEMENTATION.md` - GUI system implementation
-- `TERMINAL_IMPLEMENTATION.md` - Terminal emulator implementation
-- `TERMINAL_GUI_IMPLEMENTATION.md` - Terminal GUI integration
-- `SHELL_IMPLEMENTATION_COMPLETE.md` - Shell implementation
+- Core: [interrupts](implementation/INTERRUPT_IMPLEMENTATION.md),
+  [IPC](implementation/IPC_IMPLEMENTATION.md),
+  [scheduler](implementation/SCHEDULER_IMPLEMENTATION.md),
+  [threading](implementation/THREADING_IMPLEMENTATION.md),
+  [kernel allocator](implementation/KALLOC_IMPLEMENTATION.md),
+  [paging](implementation/PAGING_IMPLEMENTATION.md).
+- Memory: [advanced memory management](implementation/ADVANCED_MEMORY_MANAGEMENT.md),
+  [user-space memory](implementation/USER_SPACE_MEMORY_MANAGEMENT.md),
+  [VMM summary](implementation/VMM_IMPLEMENTATION_SUMMARY.md).
+- Processes: [process manager](implementation/PROCESS_MANAGER_IMPLEMENTATION.md),
+  [lifecycle](implementation/PROCESS_LIFECYCLE.md),
+  [termination](implementation/PROCESS_TERMINATION.md),
+  [signals](implementation/ADVANCED_SIGNAL_HANDLING.md),
+  [user-space execution](implementation/USER_SPACE_EXECUTION_IMPLEMENTATION.md).
+- File systems: [VFS](implementation/VFS_IMPLEMENTATION.md),
+  [FAT](implementation/FAT_IMPLEMENTATION.md),
+  [file explorer](implementation/FILE_EXPLORER_IMPLEMENTATION.md).
+- Graphics and shell: [framebuffer](implementation/FRAMEBUFFER_IMPLEMENTATION.md),
+  [GUI](implementation/GUI_IMPLEMENTATION.md),
+  [terminal](implementation/TERMINAL_IMPLEMENTATION.md),
+  [terminal GUI](implementation/TERMINAL_GUI_IMPLEMENTATION.md),
+  [shell](implementation/SHELL_IMPLEMENTATION_COMPLETE.md),
+  [CLI](implementation/CLI_IMPLEMENTATION.md).
+- Services: [audio](implementation/AUDIO_IMPLEMENTATION.md),
+  [network](implementation/NETWORK_IMPLEMENTATION.md),
+  [notifications](implementation/NOTIFICATION_IMPLEMENTATION.md),
+  [daemon management](implementation/DAEMON_MANAGEMENT_IMPLEMENTATION.md) and
+  [system daemons](implementation/SYSTEM_DAEMON_MANAGEMENT.md),
+  [kernel logging](implementation/KERNEL_LOGGING_IMPLEMENTATION.md) and the
+  [logging/debugging service](LOGGING_DEBUGGING_SERVICE.md).
+- Security: [authentication and authorization](implementation/AUTHENTICATION_AUTHORIZATION.md),
+  [auth integration](implementation/AUTHENTICATION_INTEGRATION.md).
 
-#### System Services
-- `DAEMON_MANAGEMENT_IMPLEMENTATION.md` - Daemon management system
-- `SYSTEM_DAEMON_MANAGEMENT.md` - System daemon management
-- `TERMINAL_EMULATOR.md` - Terminal emulator service
-- `LOGGING_DEBUGGING_IMPLEMENTATION.md` - Logging system implementation
-- `KERNEL_LOGGING_IMPLEMENTATION.md` - Kernel logging implementation
-- `NETWORK_IMPLEMENTATION.md` - Network system implementation
-- `NOTIFICATION_IMPLEMENTATION.md` - Notification system implementation
+## Testing
 
-#### Security & Authentication
-- `AUTHENTICATION_AUTHORIZATION.md` - Authentication and authorization
-- `AUTHENTICATION_INTEGRATION.md` - Authentication system integration
+- [Bootloader and system testing guide](TESTING.md) prerequisites, QEMU, real
+  hardware, and UEFI.
+- [QEMU and real-hardware testing](testing/QEMU_REAL_HARDWARE_TEST.md) and the
+  [USB-boot hands-on guide](testing/real_hardware_test.md).
+- [Runtime kernel debugger](testing/RUNTIME_KERNEL_DEBUGGER.md).
+- [Reverse debugging with gdb](testing/reverse-debugging.md) and
+  [driving time-travel from MCP](testing/mcp-server.md).
 
-#### User Space
-- `USER_SPACE_EXECUTION_IMPLEMENTATION.md` - User space execution
-- `USER_SPACE_IMPLEMENTATION.md` - User space framework
+The persistence and time-travel stacks have headless end-to-end demos under
+`scripts/test/` (for example `persistence_demo.sh`, `scrub_demo.sh`,
+`timetravel_live_demo.sh`, `qemu_persistence_demo.sh`) that double as CI gates in
+`.github/workflows/persistence.yml`. Recordings of the live runs are under
+[`media/`](media/).
 
-### 🧪 Testing Documentation (`testing/`)
-Testing procedures and debugging information:
-- `QEMU_REAL_HARDWARE_TEST.md` - QEMU and real hardware testing procedures
-- `real_hardware_test.md` - Real hardware testing guide
-- `RUNTIME_KERNEL_DEBUGGER.md` - Runtime kernel debugger usage
+## Contributing to docs
 
-## 📖 Reading Guide
-
-### For New Developers
-1. Start with the main `README.md` in the root directory
-2. Read `IMPLEMENTATION_SUMMARY.md` for an overview
-3. Check `architecture/` for system design understanding
-4. Explore specific `implementation/` docs for components you're working on
-
-### For System Architects
-1. Review all files in `architecture/` directory
-2. Read `VMM_README.md` for memory management design
-3. Study `DEVICE_DRIVER_FRAMEWORK.md` for driver architecture
-4. Examine `NETWORK_STACK.md` for networking design
-
-### For Contributors
-1. Check `COMPLETE.md` for current status
-2. Review relevant implementation docs for your area
-3. Consult `testing/` docs for testing procedures
-4. Follow coding standards outlined in implementation guides
-
-### For Testers
-1. Start with `testing/QEMU_REAL_HARDWARE_TEST.md`
-2. Use scripts in `../scripts/test/` directory
-3. Refer to `RUNTIME_KERNEL_DEBUGGER.md` for debugging
-4. Check component-specific implementation docs for test requirements
-
-## 🔗 Cross-References
-
-Many documents reference each other. Key relationships:
-- Memory management: `VMM_README.md` ↔ `ADVANCED_MEMORY_MANAGEMENT.md` ↔ `PAGING_IMPLEMENTATION.md`
-- Process management: `PROCESS_MANAGER_IMPLEMENTATION.md` ↔ `SCHEDULER_IMPLEMENTATION.md` ↔ `THREADING_IMPLEMENTATION.md`
-- File systems: `VFS_IMPLEMENTATION.md` ↔ `FAT_IMPLEMENTATION.md` ↔ `FILE_EXPLORER_IMPLEMENTATION.md`
-- Graphics: `FRAMEBUFFER_IMPLEMENTATION.md` ↔ `GUI_IMPLEMENTATION.md` ↔ `TERMINAL_GUI_IMPLEMENTATION.md`
-- Networking: `NETWORK_STACK.md` ↔ `NETWORK_IMPLEMENTATION.md` ↔ `TCPIP.md`
-
-## 📝 Documentation Standards
-
-All documentation follows these standards:
-- **Markdown format** with consistent heading structure
-- **Technical accuracy** with code examples where appropriate
-- **Regular updates** to reflect current implementation status
-- **Cross-references** to related components and documentation
-- **Implementation details** sufficient for reproduction
-- **Testing instructions** where applicable
-
-## 🤝 Contributing to Documentation
-
-When adding or updating documentation:
-1. Place files in the appropriate category directory
-2. Update this index file with new additions
-3. Ensure cross-references are accurate
-4. Follow the established naming conventions
-5. Include practical examples and code snippets
-6. Update related documents when making changes
-
----
-
-For questions about documentation organization or content, please refer to the main project README or open an issue in the project repository.
+- Put design and reference material in the right folder: cross-cutting design in
+  `architecture/`, per-subsystem reference in `implementation/`, and how-to /
+  test procedures in `testing/`.
+- Update this index when you add a doc.
+- Prefer living reference docs over point-in-time status reports; describe how a
+  subsystem works and where its code lives, not the branch it was merged on.

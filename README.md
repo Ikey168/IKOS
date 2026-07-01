@@ -131,6 +131,15 @@ Recording of the live boot -> record -> reverse-step run (asciicast, playable wi
 PASSED: booted, recorded, reverse-stepped, no leak
 ```
 
+The whole stack is implemented and unit-tested, with headless end-to-end demos
+that gate it in CI: the deterministic replay core (input journal, deterministic
+preemption, virtualized time and entropy) and a divergence detector that proves a
+replay is byte-exact; live per-epoch journal capture and an N-deep keyframe
+retention store on disk; the replay driver that lands the booted system at any
+`(epoch, offset)`; the time-travel verbs (rewind-to, reverse execution, reverse
+breakpoints and watchpoints); and two front ends, a gdb reverse-execution bridge
+over the serial port and an MCP JSON-RPC server an AI agent can call.
+
 Full design and the module map: [`docs/architecture/time-travel.md`](docs/architecture/time-travel.md);
 driving it from gdb: [`docs/testing/reverse-debugging.md`](docs/testing/reverse-debugging.md);
 from an MCP client: [`docs/testing/mcp-server.md`](docs/testing/mcp-server.md).
@@ -360,33 +369,15 @@ IKOS/
 
 ## Roadmap
 
-The near-term focus is the persistence stack and the capabilities that build on it.
+The persistence stack and the time-travel debugging that builds on it are the mature
+parts of IKOS, with unit tests and CI demos (see the sections above). The items below
+are the broader OS scaffolding, in rough priority order.
 
-### Time-Travel Debugging
-
-The checkpoint engine produces periodic whole-system keyframes; a deterministic input
-journal between keyframes makes execution reproducible, which turns "remember the last
-moment" into "remember every moment, and move through them" (see the
-[time-travel section](#time-travel-scrub-the-machine-backwards) above). Full design and the
-module map: [`docs/architecture/time-travel.md`](docs/architecture/time-travel.md).
-
-Status:
-- Deterministic replay core (nondeterminism catalog, input journal, deterministic
-  preemption, virtualized time and entropy): implemented, unit-tested
-- Replay engine plus a divergence detector that proves a replay is byte-exact: implemented,
-  unit-tested, with a headless byte-identical end-to-end demo
-- Time-travel UX (keyframe retention, rewind-to, reverse execution, reverse
-  breakpoints/watchpoints): implemented, unit-tested, with a headless scrub-backwards demo
-- Tooling: a GDB reverse-execution bridge (implemented, unit-tested)
-- MCP interface: expose record, rewind, and reverse execution as JSON-RPC tools an AI
-  agent can call (implemented, unit-tested), with a headless demo where an agent debugs a
-  planted heisenbug by rewinding the machine
-
-### Systems Roadmap
+Recently landed: the IDE-backed durable store wired into the boot path, the in-QEMU
+persistence-resume demo, and the full live time-travel stack (see the maturity table
+and the time-travel section above).
 
 Short term:
-- [x] IDE-backed durable store wired into the in-kernel boot path
-- [x] In-QEMU boot demo for the persistence resume
 - [ ] UEFI boot support
 - [ ] Performance optimizations
 
@@ -440,20 +431,25 @@ Contributions are welcome from developers of all skill levels.
 
 ## Documentation
 
-### Architecture
-- [Orthogonal Persistence](docs/architecture/orthogonal-persistence.md)
-- [Virtual Memory Architecture](docs/architecture/VMM_README.md)
-- [Device Driver Framework](docs/architecture/DEVICE_DRIVER_FRAMEWORK.md)
-- [Network Stack](docs/architecture/NETWORK_STACK.md)
-- [TCP/IP Implementation](docs/architecture/TCPIP.md)
+Full index: [`docs/README.md`](docs/README.md).
 
-### Implementation and Testing
-- [Audio System](docs/implementation/AUDIO_IMPLEMENTATION.md)
-- [GUI Framework](docs/implementation/GUI_IMPLEMENTATION.md)
-- [Scheduler](docs/implementation/SCHEDULER_IMPLEMENTATION.md)
-- [Memory Management](docs/implementation/VMM_IMPLEMENTATION_SUMMARY.md)
-- [Hardware Testing Guide](docs/testing/QEMU_REAL_HARDWARE_TEST.md)
-- [Runtime Kernel Debugger](docs/testing/RUNTIME_KERNEL_DEBUGGER.md)
+### Headline features
+- [Orthogonal persistence (design)](docs/architecture/orthogonal-persistence.md) and
+  [persistence v2](docs/architecture/orthogonal-persistence-v2.md)
+- [Time-travel debugging (design + module map)](docs/architecture/time-travel.md)
+- [Reverse debugging with gdb](docs/testing/reverse-debugging.md)
+- [Driving time-travel from an MCP client](docs/testing/mcp-server.md)
+
+### Architecture and subsystems
+- [Virtual Memory Manager](docs/architecture/VMM_README.md)
+- [Device Driver Framework](docs/architecture/DEVICE_DRIVER_FRAMEWORK.md)
+- [Network Stack](docs/architecture/NETWORK_STACK.md) and [TCP/IP](docs/architecture/TCPIP.md)
+- Per-subsystem reference notes in [`docs/implementation/`](docs/implementation/)
+
+### Testing and debugging
+- [Bootloader and system testing guide](docs/TESTING.md)
+- [QEMU and real-hardware testing](docs/testing/QEMU_REAL_HARDWARE_TEST.md)
+- [Runtime kernel debugger](docs/testing/RUNTIME_KERNEL_DEBUGGER.md)
 
 ## License
 

@@ -1,11 +1,11 @@
-# IKOS Orthogonal Persistence — Design Doc
+# IKOS Orthogonal Persistence - Design Doc
 
 Tracking issue: #110 (epic: #121)
 
 ## Overview
 
-Orthogonal persistence means the running state of the system — every process,
-every open region of memory, mid-instruction — is the durable state. There is
+Orthogonal persistence means the running state of the system - every process,
+every open region of memory, mid-instruction - is the durable state. There is
 no explicit save and no explicit load. A power cut followed by a reboot
 resumes execution from the last completed checkpoint instead of starting
 cold.
@@ -13,22 +13,22 @@ cold.
 This is not a new idea (KeyKOS, EROS/CapROS, Phantom OS, IBM i's
 single-level store), but no hobby-tier microkernel implements it. IKOS's
 existing virtual memory manager already provides the two primitives a
-checkpoint scheme needs — per-process address spaces and a working
-copy-on-write engine — so this design adds a snapshot *policy* on top of the
+checkpoint scheme needs - per-process address spaces and a working
+copy-on-write engine - so this design adds a snapshot *policy* on top of the
 VMM rather than replacing any of it.
 
 ## Mechanism
 
 A checkpoint has two phases:
 
-1. **`checkpoint_take()` — stop-the-world, O(address spaces) not O(memory).**
+1. **`checkpoint_take()` - stop-the-world, O(address spaces) not O(memory).**
    Walk every live `vm_space_t` and mark every currently-writable page
    read-only, tagged `PAGE_SNAPSHOT_COW` (a new software PTE flag, distinct
    from the existing fork `VMM_FLAG_COW`). Record the new checkpoint epoch.
    Return. No page is copied during this phase, so the pause is bounded by
    the number of page tables, not the amount of RAM in use.
 
-2. **`checkpoint_writeback()` — background, off the critical path.**
+2. **`checkpoint_writeback()` - background, off the critical path.**
    A kernel-side pass streams the pages belonging to the just-closed epoch
    into the on-disk snapshot store. Pages that processes write to *after*
    `checkpoint_take()` are captured by the page-fault hook (below) before
@@ -74,7 +74,7 @@ Finalizing a checkpoint is:
 3. Overwrite the superblock with `{ that slot, this epoch, crc32(superblock) }`.
 
 A crash at any point before step 3 completes leaves the superblock pointing
-at the previous, fully-written slot — so the system always boots into the
+at the previous, fully-written slot - so the system always boots into the
 last *complete* checkpoint, never a half-written one. A CRC mismatch on the
 slot the superblock names is treated as "no valid checkpoint" and the system
 falls back to a cold boot.
@@ -99,7 +99,7 @@ network sockets, in-flight DMA buffers, device register state. The policy:
 - Resources that hold this kind of state are tagged
   "does-not-survive-checkpoint" at the type level (e.g. socket descriptors,
   DMA-mapped buffers).
-- At checkpoint time these resources are **not** specially serialized — only
+- At checkpoint time these resources are **not** specially serialized - only
   the fact that a process held a handle to one is preserved as part of its
   normal memory image (the handle/descriptor still exists as a value in the
   process's address space).
@@ -107,7 +107,7 @@ network sockets, in-flight DMA buffers, device register state. The policy:
   returns a clean, well-defined error (e.g. `ECONNRESET`-equivalent for a
   socket) instead of touching now-invalid hardware/network state. The
   application is responsible for detecting the error and re-establishing
-  the resource (reconnect, remap DMA, etc.) — this is the same contract
+  the resource (reconnect, remap DMA, etc.) - this is the same contract
   applications already need for ordinary connection loss.
 - Device drivers themselves are **not** persisted in v1 (see Scope below);
   they re-initialize from cold state on every boot, restored or not.
@@ -121,7 +121,7 @@ To keep the first implementation tractable:
   state, open-handle values as opaque data).
 - **Out of scope (v2+):** persisting kernel-internal state, persisting
   driver/device state, persisting in-flight IPC messages. On every boot
-  — restored or cold — the kernel and its drivers re-initialize fresh, then
+  - restored or cold - the kernel and its drivers re-initialize fresh, then
   user processes are restored on top.
 
 This means the v1 guarantee is precisely: *user processes and their memory
