@@ -3,6 +3,7 @@
  */
 
 #include "../include/auth_system.h"
+#include "../include/entropy_record.h"   /* kentropy: deterministic-replay entropy gate (#192) */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -57,24 +58,37 @@ static int secure_random_init(void) {
     return AUTH_SUCCESS;
 }
 
+/* Live entropy source: fill len bytes from /dev/urandom. This is the real
+ * randomness the deterministic-replay entropy gate (#192) records and replays.
+ * The signature matches entropy_source_fn; returns 0 on success. */
+static int auth_urandom_source(void* ctx, void* buf, uint32_t len) {
+    (void)ctx;
+    int fd = open("/dev/urandom", O_RDONLY);
+    if (fd < 0) {
+        return -1;
+    }
+    ssize_t bytes_read = read(fd, buf, len);
+    close(fd);
+    return (bytes_read == (ssize_t)len) ? 0 : -1;
+}
+
+/* Register the auth entropy source with the kentropy gate at boot (#192), so
+ * auth_generate_random draws through kentropy_fill(): the real /dev/urandom on a
+ * live run, recorded on a record run, and reproduced identically on replay. */
+void auth_entropy_gate_init(void) {
+    kentropy_init();
+    kentropy_set_source(auth_urandom_source, NULL);
+}
+
 int auth_generate_random(void* buffer, size_t length) {
     if (!buffer || length == 0) {
         return AUTH_ERROR_INVALID;
     }
-    
-    int fd = open("/dev/urandom", O_RDONLY);
-    if (fd < 0) {
-        return AUTH_ERROR_CRYPTO;
-    }
-    
-    ssize_t bytes_read = read(fd, buffer, length);
-    close(fd);
-    
-    if (bytes_read != (ssize_t)length) {
-        return AUTH_ERROR_CRYPTO;
-    }
-    
-    return AUTH_SUCCESS;
+
+    /* Draw through the deterministic-replay entropy gate (#192) rather than
+     * reading /dev/urandom directly, so a recorded run replays identically. */
+    return (kentropy_fill(buffer, (uint32_t)length) == 0)
+               ? AUTH_SUCCESS : AUTH_ERROR_CRYPTO;
 }
 
 int auth_generate_salt(char* salt, size_t length) {

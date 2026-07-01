@@ -33,6 +33,10 @@
 void kernel_init(void);
 void kernel_loop(void);
 void show_help(void);
+
+/* Registers the auth /dev/urandom source with the entropy gate (#192);
+ * forward-declared to avoid pulling auth_system.h (and its libc deps) in. */
+extern void auth_entropy_gate_init(void);
 void show_statistics(void);
 void show_timer_info(void);
 void show_device_info(void);
@@ -82,6 +86,11 @@ void kernel_init(void) {
      * reads the cycle counter, so time reads go through the record/replay wrapper
      * (real RDTSC on a live run) rather than a raw read. Default mode is OFF. */
     ktime_init();
+
+    /* Deterministic-replay entropy gate (#192): register the auth /dev/urandom
+     * source with kentropy at boot, so auth randomness records and replays.
+     * Default mode is OFF (passthrough to /dev/urandom). */
+    auth_entropy_gate_init();
 
     /* Initialize memory management */
     memory_init();

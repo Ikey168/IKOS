@@ -424,6 +424,10 @@ int auth_generate_salt(char* salt, size_t length);
 
 /* Secure random generation */
 int auth_generate_random(void* buffer, size_t length);
+
+/* Register the auth /dev/urandom source with the deterministic-replay entropy
+ * gate (#192). Called once at boot so auth randomness records and replays. */
+void auth_entropy_gate_init(void);
 int auth_generate_session_id(char* session_id, size_t length);
 
 /* Key derivation */
