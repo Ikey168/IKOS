@@ -27,6 +27,10 @@
  * event lclock and value. */
 #define JOURNAL_EV_SCHED 5
 
+/* Divergence checksum for one component at the epoch boundary (#197). lclock
+ * carries the component id, value carries the checksum. */
+#define JOURNAL_EV_DIVERGE 6
+
 /* Injected delta sources. The live kernel wires these to
  * scheduler_preempt_points / ktime_values / kentropy_bytes; tests pass fakes.
  * Each returns the count for the current epoch and points *out at the buffer.
@@ -35,15 +39,18 @@ typedef struct {
     uint32_t (*preempt_points)(const uint64_t** out);  /* switch-point lclocks */
     uint32_t (*time_values)(const uint64_t** out);     /* captured RDTSC reads */
     uint32_t (*entropy_bytes)(const uint8_t** out);    /* captured entropy run */
+    /* Divergence checksums for the epoch boundary (#197): returns the component
+     * count and points *ids / *sums at parallel arrays. NULL to skip. */
+    uint32_t (*divergence_sums)(const uint32_t** ids, const uint32_t** sums);
 } journal_capture_sources_t;
 
 /* Gather the epoch's deltas from src and write them to store as a single
  * journal for `epoch`, committing crash-consistently (the journal store's
  * superblock flip is the one commit point, so a crash mid-write leaves the
  * previous epoch's journal intact). Event order within the journal: every
- * scheduler point, then every time read, then the entropy run. base_lclock is
- * recorded in the slot header for reference. Returns JOURNAL_OK, or a negative
- * JOURNAL_ERR_* (in which case nothing is committed). */
+ * scheduler point, every time read, the entropy run, then the divergence
+ * checksums. base_lclock is recorded in the slot header for reference. Returns
+ * JOURNAL_OK, or a negative JOURNAL_ERR_* (in which case nothing is committed). */
 int journal_capture_epoch(journal_store_t* store, uint64_t epoch,
                           uint64_t base_lclock,
                           const journal_capture_sources_t* src);

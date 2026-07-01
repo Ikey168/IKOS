@@ -33,6 +33,7 @@ ships each piece:
 | Replay engine | Restores the nearest keyframe and re-drives forward to a target epoch plus offset | `kernel/replay_engine.c`, `kernel/replay_engine_sync.c` |
 | Replay driver | Assembles the engine's load_epoch/run_epoch hooks: splits each epoch's journal events back into the three delta arrays, installs them in REPLAY mode, and re-drives the live scheduler, landing the booted system at an arbitrary (epoch, offset) | `kernel/replay_driver.c`, `kernel/replay_driver_sync.c` |
 | Divergence detector | Checksums system state per epoch on record and replay, flagging any nondeterminism leak with the epoch and component | `kernel/divergence.c`, `kernel/divergence_sync.c` |
+| Divergence component scan | Feeds the detector real per-component checksums (process table, scheduler, ...) at each epoch boundary: records them into the journal on a record run and compares the recomputed sums on replay, halting at the exact epoch and component | `kernel/divergence_scan.c`, `kernel/divergence_scan_sync.c` |
 | Keyframe retention ring | Keeps the last N keyframes so rewind is not limited to the latest | `kernel/keyframe_ring.c` |
 | Keyframe retention store | Spreads checkpoints across N on-disk regions driven by the ring, persists the ring index (rebuilding it from region superblocks if torn), and restores an arbitrary retained keyframe by epoch | `kernel/keyframe_store.c`, `kernel/keyframe_store_sync.c` |
 | Rewind-to | The core verb: nearest keyframe at or before the target, then replay to the target | `kernel/rewind.c`, `kernel/rewind_sync.c` |

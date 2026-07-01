@@ -71,6 +71,22 @@ int journal_capture_epoch(journal_store_t* store, uint64_t epoch,
         }
     }
 
+    /* 4. Divergence checksums for the epoch boundary (#197): one event per
+     *    component, carrying the component id in lclock and the checksum in
+     *    value, so replay can compare recomputed sums against these. */
+    if (src->divergence_sums) {
+        const uint32_t* ids = NULL;
+        const uint32_t* sums = NULL;
+        uint32_t n = src->divergence_sums(&ids, &sums);
+        for (uint32_t i = 0; i < n && ids && sums; i++) {
+            rc = journal_writer_append(&writer, JOURNAL_EV_DIVERGE,
+                                       ids[i], sums[i]);
+            if (rc != JOURNAL_OK) {
+                return rc;
+            }
+        }
+    }
+
     /* Commit: the journal store flips its superblock, atomically publishing
      * this epoch's journal next to the checkpoint that closed the epoch. */
     return journal_store_commit(&writer);
